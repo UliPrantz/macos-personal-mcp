@@ -86,8 +86,7 @@ scope decision. Do not resume provider integration or request provider login as
 unfinished work. Reading existing attendees is allowed. See decision 0008.
 
 Preserve upstream license attribution for any reused code. Prefer learning from
-sources over copying old implementations. Never put private evidence in Git,
-including this private repository.
+sources over copying old implementations. Never put private evidence in Git.
 
 ## Git workflow
 

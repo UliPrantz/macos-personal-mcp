@@ -71,6 +71,10 @@ without Apple's Command Line Tools or on every macOS release.
 
 ## Known limits
 
+- Account/mailbox scope is currently applied after the catalogue row bound and
+  model validation. A small mailbox can therefore hit the 100,000-row global
+  bound, and scoped reads do unnecessary work. SQL scope pushdown is recommended
+  but not yet implemented; see the comparison below.
 - Large native-index searches are validated only for macOS **26.5.2**, header 114
   and the observed LZ4 metadata profile. At most 500 unresolved body rows can be
   scanned directly without Spotlight. Unsupported profiles are not bypassed.
@@ -88,6 +92,32 @@ without Apple's Command Line Tools or on every macOS release.
 - Host approval policy, executor flags and OS privacy grants remain independent.
   No new permission or restart is needed for the maintainer's already verified
   desktop connection. New installations must verify their own actual host process.
+
+## README usability and Mail MCP review
+
+The README now leads with everyday workflows and the agent installation prompt.
+Manual setup and optional writes remain fully available in expandable sections;
+low-level contracts and configuration moved to TECHNICAL_DETAILS.md. The supported
+OS profile and AI-app data boundary remain visible without expanding anything.
+
+[The source comparison](MAIL_MCP_COMPARISON.md) covers all four requested Mail
+MCPs plus Imdinu, Sift and MP Consulting at pinned revisions. None of the inspected
+paths provided a simpler native full-body index interface. Several use owned
+incremental FTS5 indexes and offer credible faster search designs. Their published
+timings were reviewed, not reproduced on this Mac.
+
+A separate read-only metadata experiment verified identical rows for a 69-row
+mailbox: current catalogue loading took median 379.114 ms versus 9.142 ms for a
+SQL-scoped prototype over 42,600 active rows (seven iterations). Known-ID lookup
+was 0.017 ms; current archive header engine calls were 580.585 ms (five calls).
+These exclude MCP transport and body search. The prototype is not a shipped
+optimization. No competitor server was run, and no native writes were made.
+
+Recommended next work is exact SQL scoping, measured inventory-cache improvements,
+then an equivalent-workload FTS comparison before any architecture change. The
+runtime remains 0.3.1 with the same search/approval behavior and single default
+search surface. Documentation links and expandable README rendering are checked
+for this update; runtime verification above remains the release evidence.
 
 ## Public release boundary
 

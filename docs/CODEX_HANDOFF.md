@@ -1,6 +1,7 @@
 # Maintainer handoff
 
 Start with AGENTS.md, README.md, INSTALL.md, PROJECT_SPEC.md and STATUS.md.
+Detailed search, approval and development instructions are in TECHNICAL_DETAILS.md.
 The public repository starts with one clean initial commit. Pre-release history
 and raw native-data evidence are not part of the public repository.
 
@@ -44,6 +45,12 @@ native approval policy have been demonstrated in declared scopes. SDK success
 alone does not prove a new desktop installation; follow INSTALL_WITH_AGENT.md.
 Native archive coverage is nonexhaustive, the indexed OS format is gated, semantic
 search is absent, and some archive searches exceed the two-second target.
+
+The source review in MAIL_MCP_COMPARISON.md records seven peer implementations
+and a local metadata experiment. First proposed improvement: apply exact account/
+mailbox SQL scope before the catalogue row cap. This is not implemented yet.
+Compare equivalent MCP workloads before deciding whether to replace the native
+route with an incremental owned index; do not silently enable legacy search.
 
 Commit verified changes with the documented agent identity, keep STATUS accurate,
 and preserve a small, typed implementation. Never add private data or credentials

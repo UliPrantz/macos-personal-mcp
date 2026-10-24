@@ -75,4 +75,4 @@ send or event creation prepares an exact native review by default. Read the
 recipient/calendar/payload before approving. The owner can deliberately delegate
 server approval through local configuration. Calendar invitations are excluded.
 See [installation](../INSTALL.md#enable-sending-or-calendar-creation) and the
-[approval policy](../README.md#approval-and-writes).
+[approval policy](TECHNICAL_DETAILS.md#approval-and-writes).

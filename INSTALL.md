@@ -120,7 +120,7 @@ serve --enable-mail-send --enable-calendar-create --enable-calendar-open
 ```
 
 Restart that connection. This exposes 19 tools. Sends and event creation use
-independent native human confirmation by default. [Approval configuration](README.md#approval-and-writes)
+independent native human confirmation by default. [Approval configuration](docs/TECHNICAL_DETAILS.md#approval-and-writes)
 explains deliberate host/model delegation. The installer does not opt you into it.
 Calendar invitations/attendee creation are outside this native-only version.
 
