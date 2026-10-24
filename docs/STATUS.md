@@ -130,6 +130,22 @@ Mail/Calendar/Contacts export files were found. This is an audit result, not a
 claim of zero risk. A clean repository is used so old objects and Actions history
 never become part of the public repository.
 
+A fresh unauthenticated mirror and GitHub checks on 25 October reconfirmed the
+clean public root and absence of pre-release commits. At recheck, the public
+history contained the initial release and the later documentation update; only
+`main` existed, with no tags or pull-request refs. The old archive remained
+private and inaccessible anonymously. It is retained privately, not erased.
+All 105 reachable public blob versions and both public Actions logs were scanned:
+no credential-pattern findings, owner email addresses, personal home paths,
+private-topic controls, binary blobs or native data exports were found. Email
+literals were synthetic examples, the agent identity and public third-party
+license attribution. Public copyright/GitHub identity and anonymized benchmark
+statistics are intentionally retained. No issues, pull requests, releases,
+deployments or Actions artifacts existed at recheck. This records the audit
+scope and findings rather than promising absolute absence of every possible
+privacy issue. Raw audit evidence stays outside Git. README feature examples
+now include emoji while keeping installation and technical details expandable.
+
 Commercial use is permitted under AGPLv3; it does not require royalties or a
 usage report. The README's invitation to get in touch is voluntary. See LICENSE,
 NOTICE, THIRD_PARTY.md and decision 0015. Maintain this file as behavior and

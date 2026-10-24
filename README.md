@@ -1,4 +1,4 @@
-# macOS Personal MCP
+# 🍎 macOS Personal MCP
 
 **Your Mail, Calendar and Contacts, connected to ChatGPT.**
 
@@ -13,7 +13,7 @@ you're ready.
 
 **Apple Silicon Mac · ChatGPT desktop with local MCP support · [AGPLv3](LICENSE)**
 
-## A little less app-hopping
+## ✨ A little less app-hopping
 
 Imagine getting ready for tomorrow. Your calendar has the meeting, Mail has the
 conversation, and Contacts has the person you need to follow up with. Now you
@@ -24,19 +24,19 @@ can bring that context into one conversation:
 
 Or start with the small things that eat up your day:
 
-- **Find what you half-remember.** “Find the email containing ‘existing credits’
+- 🔎 **Find what you half-remember.** “Find the email containing ‘existing credits’
   from the past three days, and read me the relevant part.”
-- **Catch up on a conversation.** “Find this week's emails about the project
+- 📧 **Catch up on a conversation.** “Find this week's emails about the project
   deadline and summarize what changed.”
-- **Follow up.** “Look up Alex's email address and draft a reply here for me to review.”
-- **Put it in the calendar.** With event creation enabled: “Add a 30-minute
+- 👥 **Follow up.** “Look up Alex's email address and draft a reply here for me to review.”
+- 📅 **Put it in the calendar.** With event creation enabled: “Add a 30-minute
   preparation block tomorrow morning to my work calendar.”
 
 The assistant can search email subjects, senders and full locally available
 bodies, read messages, check calendars and look up contacts. Optional sends and
 event creation show a confirmation dialog by default.
 
-## Why this exists
+## 💡 Why this exists
 
 [Apple MCP](https://github.com/supermemoryai/apple-mcp) showed how useful it could
 be to let an AI work with the apps already on a Mac. This project takes that
@@ -52,7 +52,7 @@ no separate mail-provider connection. The messages and other data you ask it to
 retrieve are returned to your AI app and handled under that app's data policy.
 Your native Apple apps continue to sync normally.
 
-## Get started: let your AI install it
+## 🚀 Get started: let your AI install it
 
 Copy this into **ChatGPT desktop with local computer/Terminal access, Codex, or
 another agent that can run commands on your Mac**:
@@ -74,7 +74,7 @@ currently validated only on **macOS 26.5.2**; other versions have no validated
 large-scope body-search support. [Compatibility and troubleshooting](INSTALL.md#troubleshooting-and-removal).
 
 <details>
-<summary><strong>Prefer to install it yourself? Three steps</strong></summary>
+<summary><strong>🛠️ Prefer to install it yourself? Three steps</strong></summary>
 
 You'll need Git, internet access and ChatGPT desktop with local MCP support.
 The installer supplies Python and dependencies inside the checkout.
@@ -121,7 +121,7 @@ or separate mail-provider login is needed. [Detailed setup and removal](INSTALL.
 </details>
 
 <details>
-<summary><strong>Enable sending emails and creating calendar events</strong></summary>
+<summary><strong>✉️ Enable sending emails and creating calendar events</strong></summary>
 
 New installations start read-only. To enable these actions, replace the server
 arguments with:
@@ -137,7 +137,7 @@ Calendar invitations and adding attendees are not supported.
 
 </details>
 
-## What to expect today
+## 🎯 What to expect today
 
 Search, message reads, Calendar and Contacts have been tested through the actual
 desktop connection. Recent-mail searches are usually quick in our measured
@@ -153,7 +153,7 @@ doesn't exist. [Measured results and current limits](docs/STATUS.md).
 [Report a problem](https://github.com/UliPrantz/macos-personal-mcp/issues)
 
 <details>
-<summary><strong>Technical details, configuration and development</strong></summary>
+<summary><strong>⚙️ Technical details, configuration and development</strong></summary>
 
 - [How the tools work and their limits](docs/TECHNICAL_DETAILS.md#implemented-surfaces-and-limits)
 - [Search syntax, native index, coverage and optional legacy cache](docs/TECHNICAL_DETAILS.md#full-body-search-and-local-state)
