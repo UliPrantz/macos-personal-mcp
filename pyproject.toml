@@ -1,0 +1,72 @@
+[project]
+name = "macos-personal-mcp"
+version = "0.3.1"
+description = "Local Python MCP for macOS Mail, Calendar and Contacts"
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY.md"]
+requires-python = ">=3.15"
+dependencies = [
+    "lz4==4.4.5",
+    "mcp==2.0.0",
+    "pydantic==2.13.4",
+    "pyobjc-framework-cocoa==12.2.2",
+    "pyobjc-framework-contacts==12.2.2",
+    "pyobjc-framework-eventkit==12.2.2",
+]
+
+[project.scripts]
+macos-personal-mcp = "macos_personal_mcp.cli:main"
+
+[build-system]
+requires = ["hatchling==1.32.0"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+environments = ["sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
+[dependency-groups]
+dev = [
+  "pyright>=1.1.411",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4",
+  "pytest-timeout>=2.4",
+  "ruff>=0.16",
+]
+
+[tool.pyright]
+include = ["src", "tests"]
+exclude = [".venv", "local-reference", ".local"]
+pythonVersion = "3.15"
+pythonPlatform = "Darwin"
+typeCheckingMode = "strict"
+reportUnnecessaryTypeIgnoreComment = "error"
+reportImplicitOverride = "error"
+
+[tool.ruff]
+target-version = "py315"
+line-length = 100
+extend-exclude = ["local-reference", ".local"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B", "SIM", "C4", "PIE", "RUF", "ANN", "S", "DTZ"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config -ra"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 30
+filterwarnings = ["error"]
+markers = [
+  "macos: requires macOS native frameworks",
+  "live_read: explicitly enabled read against live local apps",
+  "live_write: concrete approved external-effect test; disabled by default",
+  "benchmark: measured performance checks with declared scope and corpus",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"THIRD_PARTY.md" = "macos_personal_mcp/THIRD_PARTY.md"

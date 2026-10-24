@@ -1,0 +1,9 @@
+# Tested guarded native profile. Each send/create still requires native approval.
+# Merge only this table; preserve all existing MCP registrations.
+[mcp_servers.macos-personal]
+enabled = true
+command = "/absolute/path/to/macos-personal-mcp/.venv/bin/macos-personal-mcp"
+args = ["serve", "--enable-mail-send", "--enable-calendar-create", "--enable-calendar-open"]
+startup_timeout_sec = 10
+tool_timeout_sec = 240
+default_tools_approval_mode = "writes"

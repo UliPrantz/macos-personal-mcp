@@ -1,0 +1,476 @@
+"""Explicit tool registry, strict dispatch and independently failing domains."""
+
+import json
+import platform
+from dataclasses import dataclass
+from importlib.metadata import version
+from pathlib import Path
+
+from mcp_types import Tool, ToolAnnotations
+from pydantic import ValidationError
+
+from macos_personal_mcp.body_index import BodyIndex
+from macos_personal_mcp.calendar_open import CalendarOpener
+from macos_personal_mcp.calendar_writes import CalendarExecutor, EventOutcome
+from macos_personal_mcp.mail_native.client import NativeSearchClient
+from macos_personal_mcp.mail_native.contracts import NativeSearch, NativeSearchResult
+from macos_personal_mcp.models import (
+    Account,
+    Accounts,
+    BodySearchPage,
+    CalendarKey,
+    Calendars,
+    CalendarScope,
+    Capability,
+    Contact,
+    ContactKey,
+    Contacts,
+    ContactsScope,
+    Doctor,
+    Empty,
+    Event,
+    EventOpenResult,
+    Events,
+    Failure,
+    MailAccountKey,
+    Mailboxes,
+    MailScope,
+    Message,
+    MessageKey,
+    MessagePage,
+    MessageSource,
+    Model,
+    NativePermissions,
+    SourceKey,
+)
+from macos_personal_mcp.native import Bridge, NativeBridge
+from macos_personal_mcp.permissions import (
+    REVIEWED_TOOLS,
+    ApprovalPolicy,
+    ApprovalReport,
+    LoadedConfig,
+    ToolApproval,
+)
+from macos_personal_mcp.process import NativeError
+from macos_personal_mcp.safety import (
+    EventCreate,
+    MailPreview,
+    MailSend,
+    preview_mail,
+    refuse_write,
+)
+from macos_personal_mcp.sending import MailExecutor, SendOutcome
+
+
+@dataclass(frozen=True)
+class Definition:
+    name: str
+    description: str
+    input: type[Model]
+    output: type[Model]
+    mutates: bool = False
+    native: bool = True
+
+
+READS = (
+    Definition(
+        "mail_search",
+        "Primary Mail search across locally stored subject, sender and body by default; select search_fields or filter account/mailbox/received dates. AND tokens may match across selected fields; quoted exact phrases stay within one field. Returns matched_fields and excerpts. Optional single-word ASCII fuzzy_distance 1-2; no FTS operators. Small scopes scan MIME; large scopes reuse Apple Spotlight with native metadata matching. No shadow body database. Inspect coverage/partial counts; nonexhaustive negatives are not proof of absence.",
+        NativeSearch,
+        NativeSearchResult,
+        native=False,
+    ),
+    Definition(
+        "doctor",
+        "Inspect capability gates without prompting or test objects.",
+        Empty,
+        Doctor,
+        native=False,
+    ),
+    Definition(
+        "mail_list_accounts", "Configured native Mail accounts; no body reads.", Empty, Accounts
+    ),
+    Definition(
+        "mail_list_mailboxes",
+        "Nested mailbox paths and scoped native unread counts.",
+        MailAccountKey,
+        Mailboxes,
+    ),
+    Definition(
+        "mail_list_messages",
+        "Newest metadata in an explicit account/folder/date range; optional unread filter.",
+        MailScope,
+        MessagePage,
+    ),
+    Definition(
+        "mail_search_headers",
+        "Native sender/subject search within explicit dates; never body search.",
+        MailScope,
+        MessagePage,
+    ),
+    Definition(
+        "mail_get_message",
+        "Read a bounded body and headers after validating expected RFC Message-ID; observe flags.",
+        MessageKey,
+        Message,
+    ),
+    Definition(
+        "mail_get_source",
+        "Read complete bounded raw RFC/MIME source after identity validation; reject unavailable/oversized sources, preserve flags.",
+        SourceKey,
+        MessageSource,
+    ),
+    Definition(
+        "calendar_list_calendars",
+        "Public EventKit calendars with source, writability and subscription fields; visible scope may be incomplete.",
+        Empty,
+        Calendars,
+    ),
+    Definition(
+        "calendar_list_events",
+        "EventKit occurrences within explicit selected visible calendars and dates.",
+        CalendarScope,
+        Events,
+    ),
+    Definition(
+        "calendar_search_events",
+        "Title/location/notes on EventKit occurrences within explicit selected-calendar/date scope.",
+        CalendarScope,
+        Events,
+    ),
+    Definition(
+        "calendar_get_event",
+        "Exact EventKit identity in selected calendar; recurring reads require the listed occurrence_start.",
+        CalendarKey,
+        Event,
+    ),
+    Definition(
+        "contacts_list",
+        "Paginate public unified Contacts, including labeled phones/emails and postal addresses; report limited access.",
+        ContactsScope,
+        Contacts,
+    ),
+    Definition(
+        "contacts_search",
+        "Name/organization/phone/email substring search; preserve duplicate candidates.",
+        ContactsScope,
+        Contacts,
+    ),
+    Definition(
+        "contacts_get",
+        "Read an exact persistent contact ID; do not select by display name.",
+        ContactKey,
+        Contact,
+    ),
+    Definition(
+        "mail_prepare_send",
+        "Validate configured sender and exact addresses/attachment identities; PREVIEW ONLY, no consent or send.",
+        MailSend,
+        MailPreview,
+        native=False,
+    ),
+)
+LEGACY_READS = (
+    Definition(
+        "mail_search_legacy",
+        "Compatibility-only FTS5 search; prefer mail_search. Requires explicit startup enablement and a manually refreshed complete exact account/folder/date scope. Searches cached body/subject/sender with FTS5 operators, accent folding and relevance ranking; semantics differ from mail_search. Rejects stale/incomplete indexes; never silently substitutes another backend.",
+        MailScope,
+        BodySearchPage,
+        native=False,
+    ),
+)
+WRITES = (
+    Definition(
+        "mail_send",
+        "External email with To/CC/BCC/attachments. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Never retry uncertain outcomes.",
+        MailSend,
+        SendOutcome,
+        mutates=True,
+        native=False,
+    ),
+    Definition(
+        "calendar_create_event",
+        "Create a timed or all-day event in one exact writable calendar when locally enabled; startup policy chooses native confirmation or host/model delegation. No attendees or fallback calendar.",
+        EventCreate,
+        EventOutcome,
+        mutates=True,
+        native=False,
+    ),
+    Definition(
+        "calendar_open_event",
+        "Visible native Calendar show for an exact current nonrecurring EventKit item; requires explicit local enablement. Recurring occurrence opening unavailable.",
+        CalendarKey,
+        EventOpenResult,
+        mutates=True,
+        native=False,
+    ),
+)
+
+
+class Service:
+    def __init__(
+        self,
+        *,
+        read_only: bool = True,
+        enable_legacy_mail_search: bool = False,
+        bridge: Bridge | None = None,
+        mail_executor: MailExecutor | None = None,
+        body_index: BodyIndex | None = None,
+        calendar_executor: CalendarExecutor | None = None,
+        calendar_opener: CalendarOpener | None = None,
+        approval_config: LoadedConfig | None = None,
+    ) -> None:
+        self.native_search = NativeSearchClient()
+        self.read_only = read_only
+        self.enable_legacy_mail_search = enable_legacy_mail_search
+        self.bridge = bridge if bridge is not None else NativeBridge()
+        self.mail_executor = mail_executor
+        self.body_index = body_index if body_index is not None else BodyIndex()
+        self.calendar_executor = calendar_executor
+        self.calendar_opener = calendar_opener
+        self.approval_config = approval_config
+        self.approval_policy = (
+            approval_config.config.approval if approval_config is not None else ApprovalPolicy()
+        )
+        self.approval_policy.validate_tools({d.name for d in READS + LEGACY_READS + WRITES})
+        for name, executor in (
+            ("mail_send", mail_executor),
+            ("calendar_create_event", calendar_executor),
+        ):
+            if executor is not None and executor.approval_mode != self.approval_policy.mode_for(
+                name
+            ):
+                raise NativeError(
+                    "permission_config", "Executor and local approval policy disagree"
+                )
+
+    def approval_report(self) -> ApprovalReport:
+        exposed = {t.name for t in self.tools()}
+        return ApprovalReport(
+            config_path=str(self.approval_config.path)
+            if self.approval_config is not None
+            else None,
+            config_loaded=self.approval_config.loaded
+            if self.approval_config is not None
+            else False,
+            default=self.approval_policy.default,
+            read_only=self.read_only,
+            tools=[
+                ToolApproval(
+                    tool=d.name,
+                    mode=self.approval_policy.mode_for(d.name),
+                    exposed=d.name in exposed,
+                    executor_enabled=d.name in exposed
+                    and (
+                        not d.mutates
+                        or (
+                            not self.read_only
+                            and (
+                                (d.name == "mail_send" and self.mail_executor is not None)
+                                or (
+                                    d.name == "calendar_create_event"
+                                    and self.calendar_executor is not None
+                                )
+                                or (
+                                    d.name == "calendar_open_event"
+                                    and self.calendar_opener is not None
+                                )
+                            )
+                        )
+                    ),
+                    server_dialog=d.name in REVIEWED_TOOLS
+                    and not self.read_only
+                    and (
+                        (d.name == "mail_send" and self.mail_executor is not None)
+                        or (
+                            d.name == "calendar_create_event" and self.calendar_executor is not None
+                        )
+                    )
+                    and self.approval_policy.mode_for(d.name) == "native",
+                )
+                for d in READS + LEGACY_READS + WRITES
+            ],
+        )
+
+    def description(self, definition: Definition) -> str:
+        if definition.name not in REVIEWED_TOOLS:
+            return definition.description
+        mode = self.approval_policy.mode_for(definition.name)
+        return definition.description + (
+            " Server policy: native; exact independent human dialog required."
+            if mode == "native"
+            else " Server policy: host; no server dialog, host/model responsible for consent."
+        )
+
+    def tools(self) -> list[Tool]:
+        definitions = READS if self.read_only else READS + WRITES
+        if self.enable_legacy_mail_search:
+            definitions += LEGACY_READS
+        return [
+            Tool(
+                name=d.name,
+                description=self.description(d),
+                input_schema=d.input.model_json_schema(),
+                output_schema=d.output.model_json_schema(),
+                annotations=ToolAnnotations(
+                    read_only_hint=not d.mutates,
+                    destructive_hint=d.mutates and d.name != "calendar_open_event",
+                    idempotent_hint=not d.mutates or d.name == "calendar_open_event",
+                    open_world_hint=True,
+                ),
+            )
+            for d in definitions
+        ]
+
+    async def doctor(self) -> Doctor:
+        permissions: NativePermissions | None = None
+        try:
+            permissions = await self.bridge.call("permissions", Empty(), NativePermissions)
+            permission_note = "Native authorization status inspected without a permission request"
+        except NativeError as error:
+            permission_note = error.detail
+        try:
+            next((Path.home() / "Library" / "Mail").iterdir(), None)
+            mail_source = "Mail root readable; no schema/body corpus coverage is established"
+        except OSError:
+            mail_source = "Mail filesystem root is denied; authorized public Mail API ingestion is independent"
+        return Doctor(
+            python=platform.python_version(),
+            sdk=version("mcp"),
+            read_only=self.read_only,
+            permissions=permissions,
+            capabilities=[
+                Capability(
+                    capability="server_approval",
+                    state="available",
+                    detail="Local startup policy: "
+                    + ", ".join(
+                        f"{name}={self.approval_policy.mode_for(name)}"
+                        for name in sorted(REVIEWED_TOOLS)
+                    )
+                    + "; host approval rules remain independent",
+                ),
+                Capability(capability="native_reads", state="unverified", detail=permission_note),
+                Capability(
+                    capability="calendar_create",
+                    state="unverified"
+                    if self.calendar_executor is not None and not self.read_only
+                    else "blocked",
+                    detail="Native executor and durable journal enabled; server approval follows local startup policy; save outcomes are checked against the payload"
+                    if self.calendar_executor is not None and not self.read_only
+                    else "Calendar execution disabled in this launch mode",
+                ),
+                Capability(
+                    capability="full_body_search",
+                    state="unverified",
+                    detail="Primary mail_search searches native subject/sender/body on demand with explicit coverage. "
+                    + (
+                        "Compatibility-only mail_search_legacy is enabled with separate FTS5 semantics and explicit cache maintenance. "
+                        if self.enable_legacy_mail_search
+                        else "Legacy FTS5 search is disabled and absent from this tool registry. "
+                    )
+                    + mail_source,
+                ),
+                Capability(
+                    capability="email_send",
+                    state="unverified"
+                    if self.mail_executor is not None and not self.read_only
+                    else "blocked",
+                    detail="Native executor and durable journal enabled; server approval follows local startup policy; delivery still needs verification"
+                    if self.mail_executor is not None and not self.read_only
+                    else "Mail execution disabled in this launch mode; exact human review is required when enabled",
+                ),
+                Capability(
+                    capability="invitations",
+                    state="blocked",
+                    detail="Attendee creation is excluded by owner decision; native macOS integration only, no direct provider APIs",
+                ),
+                Capability(
+                    capability="desktop",
+                    state="unverified",
+                    detail="A subprocess client does not prove desktop registration/access",
+                ),
+            ],
+        )
+
+    async def call(self, name: str, arguments_json: str) -> Model:
+        definitions = READS + WRITES
+        if self.enable_legacy_mail_search:
+            definitions += LEGACY_READS
+        definition = next((d for d in definitions if d.name == name), None)
+        if definition is None:
+            return Failure(code="unknown_tool", message="Unknown tool")
+        try:
+            # Check effects before touching attachments, native apps or accepting hidden tool inputs.
+            if definition.mutates and self.read_only:
+                refuse_write(read_only=True)
+            request = definition.input.model_validate_json(arguments_json)
+            if definition.mutates:
+                if name == "calendar_create_event" and self.calendar_executor is not None:
+                    if not isinstance(request, EventCreate):
+                        raise NativeError("invalid_input", "Expected event creation payload")
+                    return await self.calendar_executor.create(request)
+                if name == "mail_send" and self.mail_executor is not None:
+                    if not isinstance(request, MailSend):
+                        raise NativeError("invalid_input", "Expected MailSend")
+                    accounts = await self.bridge.call("mail_list_accounts", Empty(), Accounts)
+                    self.validate_sender(request.sender, accounts.accounts)
+                    return await self.mail_executor.send(request)
+                if name == "calendar_open_event":
+                    if self.calendar_opener is None:
+                        raise NativeError(
+                            "open_disabled", "Calendar UI opening disabled in this launch mode"
+                        )
+                    if not isinstance(request, CalendarKey):
+                        raise NativeError("invalid_input", "Expected exact event identity")
+                    return await self.calendar_opener.open(request)
+                refuse_write(read_only=False)
+            if name == "doctor":
+                return await self.doctor()
+            if name == "mail_search":
+                if not isinstance(request, NativeSearch):
+                    raise NativeError("invalid_input", "Expected native Mail search scope")
+                return await self.native_search.search(request)
+            if name == "mail_search_legacy":
+                if not isinstance(request, MailScope):
+                    raise NativeError("invalid_input", "Expected explicit Mail scope")
+                return await self.body_index.search(request, self.bridge)
+            if name == "mail_prepare_send":
+                if not isinstance(request, MailSend):
+                    raise NativeError("invalid_input", "Expected MailSend")
+                accounts = await self.bridge.call("mail_list_accounts", Empty(), Accounts)
+                self.validate_sender(request.sender, accounts.accounts)
+                return preview_mail(request)
+            return await self.bridge.call(name, request, definition.output)
+        except NativeError as error:
+            return Failure(code=error.code, message=error.detail)
+        except ValidationError:
+            # Validation messages may echo bodies/addresses; release a redacted error instead.
+            return Failure(
+                code="invalid_input",
+                message="Input or native output violates the published strict schema",
+            )
+        except OSError, ValueError:
+            return Failure(
+                code="operation_failed",
+                message="Operation failed before any external write dispatch",
+            )
+
+    @staticmethod
+    def validate_sender(sender: str, accounts: list[Account]) -> None:
+        matches = [
+            a
+            for a in accounts
+            if a.enabled and sender.casefold() in {v.casefold() for v in a.emails}
+        ]
+        if len(matches) != 1:
+            raise NativeError(
+                "sender_ambiguous",
+                "Sender must identify exactly one enabled configured Mail account",
+            )
+
+
+def structured(model: Model) -> dict[str, object]:
+    # SDK boundary only. Domain code uses validated models, never raw native dictionaries.
+    result: dict[str, object] = json.loads(model.model_dump_json())
+    return result

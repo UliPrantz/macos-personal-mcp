@@ -1,0 +1,13 @@
+# Server review policy. Loaded once when the MCP starts.
+[approval]
+default = "native" # "native" = independent dialog; "host" = delegate to host/model
+
+# Optional domain defaults:
+# mail = "host"
+# calendar = "native"
+# contacts = "host" # Contacts is read-only; no server dialog in either mode.
+
+[approval.tools]
+# Exact tool overrides win over domain and global defaults:
+# mail_send = "host"
+# calendar_create_event = "native"

@@ -1,0 +1,5 @@
+# No MCP-server confirmation dialogs. The host/model handles consent.
+# Host approval rules and macOS permissions remain independent.
+# Existing tool launch flags, validation and retry protection still apply.
+[approval]
+default = "host"

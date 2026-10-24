@@ -1,0 +1,30 @@
+name: Verify MCP
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.15.1'
+          architecture: arm64
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          version: '0.13.1'
+          enable-cache: false
+      - run: uv sync --dev --locked --python python
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync pyright
+      - run: uv run --no-sync pytest
+      - run: sh -n scripts/install.sh
+      - run: uv build --wheel
+      - run: osacompile -l JavaScript -o "$RUNNER_TEMP/bridge.scpt" src/macos_personal_mcp/bridge.js
+      - run: osacompile -l JavaScript -o "$RUNNER_TEMP/mail_write.scpt" src/macos_personal_mcp/mail_write.js
+      - run: osacompile -l JavaScript -o "$RUNNER_TEMP/calendar_open.scpt" src/macos_personal_mcp/calendar_open.js
