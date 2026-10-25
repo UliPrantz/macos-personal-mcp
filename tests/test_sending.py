@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -175,10 +176,12 @@ async def test_final_journal_failure_never_claims_zero_effects(tmp_path: Path) -
 
     class FinalFailure(OutcomeJournal):
         @override
-        def update(self, preview: WritePreview, status: OutcomeStatus) -> None:
+        def update(
+            self, preview: WritePreview, status: OutcomeStatus, failure_code: str | None = None
+        ) -> None:
             if status == "accepted":
                 raise OSError("Synthetic final persistence failure")
-            super().update(preview, status)
+            super().update(preview, status, failure_code)
 
     reviewer, dispatch = HumanFixture(True), DispatchFixture()
     journal = FinalFailure(tmp_path / "owned")
@@ -187,3 +190,81 @@ async def test_final_journal_failure_never_claims_zero_effects(tmp_path: Path) -
     retry = await MailExecutor(journal, reviewer, dispatch).send(mail_payload())
     assert retry.status == "outcome_unknown" and retry.replayed
     assert reviewer.calls == dispatch.calls == 1
+
+
+async def test_draft_verification_diagnostic_survives_restart_without_resending(
+    tmp_path: Path,
+) -> None:
+    class ChangedDraft:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def dispatch(self, payload: MailSend) -> bool:
+            self.calls += 1
+            raise NativeError("native_message_changed", "Untrusted private error text")
+
+    reviewer = HumanFixture(True)
+    dispatcher = ChangedDraft()
+    journal = OutcomeJournal(tmp_path / "owned")
+    result = await MailExecutor(journal, reviewer, dispatcher).send(mail_payload())
+    assert result.status == "outcome_unknown" and result.external_effects_dispatched
+    assert result.failure_code == "native_message_changed"
+    assert "send command was not called" in result.detail
+    assert "Untrusted private" not in result.detail
+    replay = await MailExecutor(journal, reviewer, dispatcher).send(mail_payload())
+    assert replay.replayed and replay.failure_code == "native_message_changed"
+    assert "draft failed verification before the send command" in replay.detail
+    assert reviewer.calls == dispatcher.calls == 1
+
+
+def test_old_outcome_journal_migration_preserves_uncertain_no_retry_barrier(tmp_path: Path) -> None:
+    import sqlite3
+
+    payload = mail_payload()
+    preview = preview_mail(payload)
+    root = tmp_path / "owned"
+    root.mkdir(mode=0o700)
+    path = root / "write-outcomes.sqlite3"
+    with closing(sqlite3.connect(path)) as db:
+        db.execute(
+            "CREATE TABLE outcomes (operation_id TEXT PRIMARY KEY,digest TEXT NOT NULL,status TEXT NOT NULL,updated_at TEXT NOT NULL)"
+        )
+        db.execute(
+            "INSERT INTO outcomes VALUES (?,?,?,?)",
+            (payload.operation_id, preview.digest, "dispatch_started", "2026-10-01T00:00:00Z"),
+        )
+        db.commit()
+    path.chmod(0o600)
+    result = OutcomeJournal(root).reserve(preview)
+    assert result is not None and result.replayed and result.status == "outcome_unknown"
+    assert result.failure_code is None and result.external_effects_dispatched
+    with closing(sqlite3.connect(path)) as db:
+        assert db.execute("SELECT count(*) FROM outcomes").fetchone()[0] == 1
+        assert {row[1] for row in db.execute("PRAGMA table_info(outcomes)")} == {
+            "operation_id",
+            "digest",
+            "status",
+            "updated_at",
+        }
+        assert db.execute("SELECT count(*) FROM outcome_failures").fetchone()[0] == 0
+        # Old live clients can still insert their original four-column records.
+        db.execute(
+            "INSERT INTO outcomes VALUES (?,?,?,?)",
+            ("old_client", "synthetic", "preparing", "2026-10-01T00:00:00Z"),
+        )
+        db.commit()
+
+
+async def test_native_dispatcher_reports_safe_structured_draft_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from macos_personal_mcp.sending import NativeMailDispatcher
+
+    async def synthetic_child(argv: list[str], payload: bytes, *, timeout: float) -> bytes:
+        assert timeout == 20
+        return b'{"accepted":false,"failure_code":"native_message_changed"}'
+
+    monkeypatch.setattr("macos_personal_mcp.sending.run_child", synthetic_child)
+    with pytest.raises(NativeError) as error:
+        await NativeMailDispatcher().dispatch(mail_payload())
+    assert error.value.code == "native_message_changed"

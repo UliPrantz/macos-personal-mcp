@@ -41,6 +41,14 @@ unknown coverage into a completeness guarantee. See decision 0011.
 - Include a doctor/capabilities command that reports permission status and
   supported routes without writing test objects or requesting broad permissions
   merely to inspect status. Missing one app's permission must not disable others.
+  Doctor must distinguish not-determined, denied, restricted, Calendar write-only
+  and Contacts limited states and return concrete per-domain next actions. Report
+  observed host paths without claiming they prove macOS's responsible identity.
+  An explicitly invoked `request_permissions` tool may request one selected
+  Calendar/Contacts grant through public APIs; it is separate from ordinary reads
+  and startup. It remains available with source writes disabled, with truthful
+  non-read-only/non-destructive setup annotations. No grant, executor enablement
+  or test event/contact may be fabricated. See decision 0016.
 
 ## Required tool behavior
 
@@ -96,6 +104,10 @@ below may be refined, but the capabilities and approval separation must remain.
   subject, body and local attachment paths. Validate recipients, aliases and
   attachment availability before approval. Support multiple recipients and
   attachments. Verify delivered attachment bytes in a controlled live test.
+  Accept Mail's observed single appended ASCII space in an outgoing body, while
+  rejecting other content changes. Draft verification failures must explain that
+  sending was not attempted; retain a safe diagnostic code without weakening
+  the durable no-blind-retry barrier or logging/storing message payloads.
 - Preserve read/unread flags during reads. Reading may fetch a remote body;
   expose unavailable, encrypted or slow bodies as such. Do not claim they were
   searched when they were not. Metadata operations should avoid body reads.

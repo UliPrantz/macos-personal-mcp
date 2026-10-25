@@ -10,7 +10,7 @@ from macos_personal_mcp.mail_native.contracts import NativeSearch, NativeSearchR
 from macos_personal_mcp.models import Failure, Model
 from macos_personal_mcp.process import NativeError
 from macos_personal_mcp.server import create_server
-from macos_personal_mcp.service import READS, WRITES, Service
+from macos_personal_mcp.service import READS, SETUP, WRITES, Service
 from tests.test_contracts import mail_payload
 
 
@@ -30,7 +30,7 @@ class FixtureBridge:
 async def test_discovery_and_dispatch_read_only_both_enforced() -> None:
     bridge = FixtureBridge()
     service = Service(bridge=bridge)
-    assert {t.name for t in service.tools()} == {d.name for d in READS}
+    assert {t.name for t in service.tools()} == {d.name for d in READS + SETUP}
     for definition in WRITES:
         result = await service.call(definition.name, "{}")
         assert isinstance(result, Failure) and result.code == "read_only"
@@ -100,7 +100,7 @@ async def test_search_registry_has_one_primary_and_opt_in_legacy(
     bridge = FixtureBridge()
     service = Service(read_only=read_only, bridge=bridge, enable_legacy_mail_search=legacy)
     tools = {tool.name: tool for tool in service.tools()}
-    assert len(tools) == (16 if read_only else 19) + int(legacy)
+    assert len(tools) == (17 if read_only else 20) + int(legacy)
     assert "mail_search_native" not in tools
     assert ("mail_search_legacy" in tools) is legacy
     assert tools["mail_search"].input_schema == NativeSearch.model_json_schema()
@@ -149,10 +149,10 @@ async def test_real_sdk_client_schemas_read_and_redacted_errors() -> None:
     bridge = FixtureBridge()
     async with Client(create_server(Service(bridge=bridge))) as client:
         tools = await client.list_tools()
-        assert {t.name for t in tools.tools} == {d.name for d in READS}
+        assert {t.name for t in tools.tools} == {d.name for d in READS + SETUP}
         for tool in tools.tools:
             assert tool.annotations is not None
-            assert tool.annotations.read_only_hint is True
+            assert tool.annotations.read_only_hint is (tool.name != "request_permissions")
             assert tool.annotations.destructive_hint is False
             assert tool.input_schema["additionalProperties"] is False
         result = await client.call_tool("mail_list_accounts", {})

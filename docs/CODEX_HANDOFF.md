@@ -19,11 +19,18 @@ and raw native-data evidence are not part of the public repository.
 - Search identities work directly in message/source reads. One well-formed RFC
   angle-bracket wrapper is equivalent to Mail's public unwrapped identity;
   changed IDs fail before reading content. See decision 0014.
-- New installations start read-only (16 tools); explicit native write executors
-  expose 19 tools. Native review is the default. Owner-controlled startup policy
+- New installations disable source writes (16 read tools plus permission setup,
+  17 total); explicit native write executors expose 20 tools. Native review is the default. Owner-controlled startup policy
   may delegate consent to the host/model; validation and outcome guards remain.
 - AGPL-3.0-only, with third-party licenses/notices preserved. See LICENSE, NOTICE,
   THIRD_PARTY.md and decision 0015. Commercial contact requests are voluntary.
+- Doctor gives per-domain `next_actions` and observed host context. Only explicit
+  `request_permissions` can request one Calendar/Contacts grant; ordinary reads
+  and doctor never prompt. Not-determined differs from denied/restricted. Read
+  PERMISSIONS.md and decision 0016 before changing that boundary.
+- Mail's observed single appended ASCII space passes review. Other body changes
+  remain blocked. Draft rejection has a persistent safe failure code and never
+  permits an automatic retry; preserve old uncertain operations and existing drafts.
 
 ## Verification
 

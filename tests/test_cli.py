@@ -34,7 +34,7 @@ def test_legacy_cli_flag_only_changes_explicit_search_exposure(
     assert captured.err == ""
     tools = [Tool.model_validate_json(line) for line in captured.out.splitlines()]
     names = {tool.name for tool in tools}
-    assert len(names) == (16 if read_only else 19) + int(legacy)
+    assert len(names) == (17 if read_only else 20) + int(legacy)
     assert "mail_search" in names and "mail_search_native" not in names
     assert ("mail_search_legacy" in names) is legacy
     assert ("mail_send" in names) is not read_only

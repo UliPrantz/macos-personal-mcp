@@ -18,7 +18,9 @@ class NativeBridge:
     async def call[T: Model](self, operation: str, request: Model, output: type[T]) -> T:
         if sys.platform != "darwin":
             raise NativeError("platform", "Native operations require macOS")
-        if operation == "permissions" or operation.startswith(("calendar_", "contacts_")):
+        if operation in {"permissions", "request_permissions"} or operation.startswith(
+            ("calendar_", "contacts_")
+        ):
             raw = await run_child(
                 [
                     sys.executable,
@@ -27,6 +29,7 @@ class NativeBridge:
                     operation,
                 ],
                 request.model_dump_json().encode(),
+                timeout=105 if operation == "request_permissions" else 15,
             )
             reply = NativeReply.model_validate_json(raw)
             if reply.failure is not None:

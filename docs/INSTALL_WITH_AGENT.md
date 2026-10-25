@@ -92,17 +92,27 @@ restarting the whole app-server. If the host requires interrupting your session,
 save progress and tell the person exactly how to resume before restarting.
 
 Run `doctor` through the actual desktop tools. Mail Automation, Calendar,
-Contacts and Mail-folder Full Disk Access are separate permissions. Request only
-an observed missing permission for a requested feature. Native read calls can
-trigger normal app permission prompts; `doctor` itself does not. The person may
-need to click the OS dialog. Do not use sudo, modify TCC databases or grant broad
-privacy access by script. Report the actual app/helper performing denied reads;
-do not repeatedly ask for an irrelevant process's permission.
+Contacts and Mail-folder Full Disk Access are separate permissions. Follow
+`doctor.next_actions` for an observed missing permission on a requested feature.
+For `not_determined`, call `request_permissions` for the chosen `calendar` or
+`contacts` domain with the user's setup consent; let them answer the OS dialog.
+Do not send them to Settings looking for a nonexistent entry first. Denied and
+restricted states require the reported Settings/admin action. Doctor and ordinary
+Calendar/Contacts readers never prompt. Mail account discovery can request normal
+Mail Automation access. Requests and verification must use this same desktop
+connection; an unrelated Terminal grant proves nothing about it.
+
+Report observed `doctor.host` executable/parent context without claiming it proves
+the macOS responsible identity. Use the app/helper named by the native dialog.
+Do not use sudo, modify TCC databases, grant broad privacy access by script, or
+keep asking for an irrelevant process's permission. An incomplete/failed request
+is not proof of denial; inspect a pending dialog and host privacy usage metadata.
+See [permission setup](PERMISSIONS.md).
 
 Verify from the **desktop tool catalog**, rather than only Terminal:
 
-1. New read-only install: 16 tools, combined `mail_search` present; legacy/native
-   aliases absent. A preserved guarded profile has 19 tools.
+1. New read-only install: 17 tools (16 reads plus `request_permissions`), combined
+   `mail_search` present; legacy/native aliases absent. A guarded profile has 20 tools.
 2. Call `doctor`, Mail account discovery, calendar discovery and one-contact
    pagination. Keep private contents out of the installation report.
 3. Search a narrow recent date range with a common keyword, then an unlikely

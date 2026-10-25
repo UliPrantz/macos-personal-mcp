@@ -12,7 +12,13 @@ function recipients() {
 const app={
     accounts:()=>Array.from({length:scenario==='ambiguous'?2:1},()=>({enabled:()=>true,emailAddresses:()=>[p.sender]})),
     OutgoingMessage:data=>{
-        const content=()=>data.content+(scenario==='changed-content'?' unreviewed signature':'');
+        const suffix={
+            'changed-content':' unreviewed signature',
+            'trailing-space':' ',
+            'two-spaces':'  ',
+            'trailing-newline':'\n'
+        }[scenario]||'';
+        const content=()=>data.content+suffix;
         content.attachments={push:x=>{captured.attachments.push(x.fileName);}};
         captured={...data,to:[],cc:[],bcc:[],attachments:[]};
         const to=recipients(),cc=recipients(),bcc=recipients();

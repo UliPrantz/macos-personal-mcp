@@ -2,6 +2,7 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
 from pydantic import JsonValue
 
 from macos_personal_mcp.process import run_child
@@ -53,4 +54,18 @@ async def test_ambiguous_sender_cannot_even_create_a_draft() -> None:
 
 async def test_native_body_change_cannot_send_unreviewed_content() -> None:
     result = await dispatch_fixture("changed-content")
+    assert result["counters"] == {"drafts": 1, "sends": 0}
+    assert result["result"] == {"accepted": False, "failure_code": "native_message_changed"}
+
+
+async def test_native_single_appended_space_can_send_reviewed_body() -> None:
+    result = await dispatch_fixture("trailing-space")
+    assert result["result"] == {"accepted": True}
+    assert result["counters"] == {"drafts": 1, "sends": 1}
+
+
+@pytest.mark.parametrize("scenario", ["two-spaces", "trailing-newline"])
+async def test_other_whitespace_changes_do_not_pass_review(scenario: str) -> None:
+    result = await dispatch_fixture(scenario)
+    assert result["result"] == {"accepted": False, "failure_code": "native_message_changed"}
     assert result["counters"] == {"drafts": 1, "sends": 0}

@@ -1,4 +1,4 @@
-"""Public PyObjC reads in a disposable process, bounded by the parent's deadline."""
+"""Public PyObjC reads and explicit access setup in a bounded disposable process."""
 
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -9,6 +9,7 @@ import Contacts as CN
 import EventKit as EK
 from Foundation import NSDate, NSTimeZone
 
+from macos_personal_mcp.access import permission_problem
 from macos_personal_mcp.models import (
     Attendee,
     Calendar,
@@ -25,10 +26,16 @@ from macos_personal_mcp.models import (
     Failure,
     LabeledValue,
     Model,
-    NativePermissions,
     NativeReply,
     Page,
+    PermissionRequest,
     PostalAddress,
+)
+from macos_personal_mcp.native_access import (
+    calendar_status,
+    contacts_status,
+    native_permissions,
+    request_access,
 )
 from macos_personal_mcp.process import NativeError
 
@@ -39,7 +46,9 @@ MAX_EVENTS = 5_000
 def require_calendar_read(status: int) -> None:
     if status != EK.EKAuthorizationStatusFullAccess:
         raise NativeError(
-            "calendar_permission", "Full Calendar read access is not granted to this process"
+            "calendar_permission",
+            "Full Calendar read access is not granted to this process. "
+            + permission_problem("calendar", calendar_status(status)),
         )
 
 
@@ -111,7 +120,9 @@ def read_contacts(operation: str, payload: str) -> Model:
     status = CN.CNContactStore.authorizationStatusForEntityType_(0)
     if status not in {CN.CNAuthorizationStatusAuthorized, CN.CNAuthorizationStatusLimited}:
         raise NativeError(
-            "contacts_permission", "Contacts read access is not granted to this process"
+            "contacts_permission",
+            "Contacts read access is not granted to this process. "
+            + permission_problem("contacts", contacts_status(status)),
         )
     store = CN.CNContactStore.alloc().init()
     if operation == "contacts_get":
@@ -318,22 +329,9 @@ def main() -> None:
         if len(payload) > 2_000_000:
             raise NativeError("input_limit", "Native worker input exceeds its bound")
         if operation == "permissions":
-            result: Model = NativePermissions(
-                calendar={
-                    0: "not_determined",
-                    1: "restricted",
-                    2: "denied",
-                    3: "full_access",
-                    4: "write_only",
-                }.get(EK.EKEventStore.authorizationStatusForEntityType_(0), "unknown"),
-                contacts={
-                    0: "not_determined",
-                    1: "restricted",
-                    2: "denied",
-                    3: "authorized",
-                    4: "limited",
-                }.get(CN.CNContactStore.authorizationStatusForEntityType_(0), "unknown"),
-            )
+            result: Model = native_permissions()
+        elif operation == "request_permissions":
+            result = request_access(PermissionRequest.model_validate_json(payload))
         elif operation.startswith("calendar_"):
             result = read_calendar(operation, payload)
         elif operation.startswith("contacts_"):
@@ -347,7 +345,7 @@ def main() -> None:
         # Do not echo native exceptions: fields and provider diagnostics can be private.
         reply = NativeReply(
             failure=Failure(
-                code="native_failure", message="Public native read failed; no complete result"
+                code="native_failure", message="Public native operation failed; no complete result"
             )
         )
     print(reply.model_dump_json())

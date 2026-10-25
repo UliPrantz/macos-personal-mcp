@@ -39,6 +39,10 @@ not instructions inherited by this project.
   and child reaping. No timeout may become a successful empty result.
 - STDIO stdout is protocol only. Use stderr for redacted diagnostics. Avoid
   payload logging. Do no heavy indexing or permission prompting on startup.
+- Doctor and ordinary Calendar/Contacts reads never request grants. Use the
+  explicit per-domain request_permissions setup tool only for a user-requested
+  connection/grant. Follow its next actions; not-determined is not denied and
+  may have no Settings entry yet. Keep OS access separate from send/create review.
 - Keep the runtime independent of request/connection history. Explicit bounded
   local indexes and a minimal write-outcome journal are permitted disk state;
   no scheduler or background worker. Document their lifecycle.

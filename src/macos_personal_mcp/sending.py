@@ -44,10 +44,12 @@ class SendOutcome(Model):
     replayed: bool = False
     approval_mode: ApprovalMode | None = None
     detail: str
+    failure_code: str | None = None
 
 
 class Acceptance(Model):
     accepted: bool
+    failure_code: Literal["native_message_changed"] | None = None
 
 
 class Reviewer(Protocol):
@@ -66,7 +68,10 @@ class NativeMailDispatcher:
             payload.model_dump_json().encode(),
             timeout=20,
         )
-        return Acceptance.model_validate_json(raw).accepted
+        result = Acceptance.model_validate_json(raw)
+        if result.failure_code is not None:
+            raise NativeError(result.failure_code, "Native draft failed payload verification")
+        return result.accepted
 
 
 def private_directory(path: Path) -> None:
@@ -95,10 +100,17 @@ class OutcomeJournal:
             os.close(descriptor)
         connection = sqlite3.connect(self.path, timeout=1)
         try:
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 "CREATE TABLE IF NOT EXISTS outcomes "
                 "(operation_id TEXT PRIMARY KEY, digest TEXT NOT NULL, status TEXT NOT NULL, "
                 "updated_at TEXT NOT NULL)"
+            )
+            # Preserve the original four-column table: an older still-running
+            # client may use INSERT ... VALUES without column names.
+            connection.execute(
+                "CREATE TABLE IF NOT EXISTS outcome_failures "
+                "(operation_id TEXT PRIMARY KEY, failure_code TEXT NOT NULL)"
             )
             connection.commit()
             yield connection
@@ -109,11 +121,13 @@ class OutcomeJournal:
         with self.connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT digest, status FROM outcomes WHERE operation_id = ?",
+                "SELECT o.digest, o.status, f.failure_code FROM outcomes o "
+                "LEFT JOIN outcome_failures f ON f.operation_id=o.operation_id WHERE o.operation_id = ?",
                 (preview.payload.operation_id,),
             ).fetchone()
             if row is not None:
                 digest, status_text = str(row[0]), str(row[1])
+                failure_code = str(row[2]) if row[2] is not None else None
                 if digest != preview.digest:
                     raise NativeError(
                         "operation_conflict", "Operation ID already binds another payload"
@@ -129,12 +143,18 @@ class OutcomeJournal:
                         "external_effects_dispatched": status_text
                         in {"dispatch_started", "accepted", "outcome_unknown"},
                         "replayed": True,
-                        "detail": "Recorded operation; no new approval or native dispatch. Never blindly retry an uncertain write.",
+                        "failure_code": failure_code,
+                        "detail": "Recorded operation; no new approval or native dispatch. "
+                        + (
+                            "The draft failed verification before the send command. Inspect it before any further action."
+                            if failure_code == "native_message_changed"
+                            else "Never blindly retry an uncertain write."
+                        ),
                     }
                 )
                 return result
             connection.execute(
-                "INSERT INTO outcomes VALUES (?, ?, ?, ?)",
+                "INSERT INTO outcomes (operation_id,digest,status,updated_at) VALUES (?, ?, ?, ?)",
                 (
                     preview.payload.operation_id,
                     preview.digest,
@@ -145,7 +165,9 @@ class OutcomeJournal:
             connection.commit()
         return None
 
-    def update(self, preview: WritePreview, status: OutcomeStatus) -> None:
+    def update(
+        self, preview: WritePreview, status: OutcomeStatus, failure_code: str | None = None
+    ) -> None:
         with self.connection() as connection:
             cursor = connection.execute(
                 "UPDATE outcomes SET status = ?, updated_at = ? WHERE operation_id = ? AND digest = ?",
@@ -158,6 +180,16 @@ class OutcomeJournal:
             )
             if cursor.rowcount != 1:
                 raise NativeError("journal_identity", "Outcome journal identity mismatch")
+            if failure_code is None:
+                connection.execute(
+                    "DELETE FROM outcome_failures WHERE operation_id = ?",
+                    (preview.payload.operation_id,),
+                )
+            else:
+                connection.execute(
+                    "INSERT OR REPLACE INTO outcome_failures (operation_id,failure_code) VALUES (?,?)",
+                    (preview.payload.operation_id, failure_code),
+                )
             connection.commit()
 
 
@@ -232,6 +264,7 @@ class MailExecutor:
         dispatched = False
         status: OutcomeStatus = "not_dispatched"
         detail = "No native write dispatched"
+        failure_code: str | None = None
         try:
             with frozen_attachments(preview, self.journal.root) as frozen:
                 if not await self.reviewer.approve(preview):
@@ -256,6 +289,23 @@ class MailExecutor:
         except asyncio.CancelledError:
             self.journal.update(preview, "outcome_unknown" if dispatched else "not_dispatched")
             raise
+        except NativeError as error:
+            status = "outcome_unknown" if dispatched else "not_dispatched"
+            failure_code = error.code
+            if error.code == "native_message_changed":
+                detail = (
+                    "Mail created a draft but its fields differed from the reviewed payload; "
+                    "the send command was not called. Inspect the draft before any further action."
+                )
+            else:
+                detail = (
+                    "Native Mail step failed (" + error.code + "). A draft may remain; "
+                    "delivery is unknown. Inspect Drafts, Outbox, Sent and the recipient before retrying."
+                    if dispatched
+                    else "Approval, validation or preparation failed ("
+                    + error.code
+                    + "); no native write dispatched"
+                )
         except Exception:
             status = "outcome_unknown" if dispatched else "not_dispatched"
             detail = (
@@ -264,7 +314,7 @@ class MailExecutor:
                 else "Approval, validation or preparation failed; no native write dispatched"
             )
         try:
-            self.journal.update(preview, status)
+            self.journal.update(preview, status, failure_code)
         except Exception:
             # The earlier dispatch_started record remains a no-retry barrier even if
             # the final journal write fails. Never report failure-before-dispatch here.
@@ -278,6 +328,7 @@ class MailExecutor:
             digest=preview.digest,
             status=status,
             external_effects_dispatched=dispatched,
+            failure_code=failure_code,
             detail=detail,
             approval_mode=self.approval_mode,
         )

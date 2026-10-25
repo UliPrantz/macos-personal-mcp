@@ -11,8 +11,9 @@ reports coverage and missing/partial bodies explicitly. Recent scopes are fast;
 archive searches can exceed two seconds and do not certify exhaustive coverage.
 See [measured status](STATUS.md) for exact checks, OS limits and gaps.
 
-New installations expose **16 read tools**. Optional send/create/open flags expose
-**19 tools**; the legacy FTS cache is hidden unless explicitly enabled. Invitations
+New installations expose **16 read tools plus permission setup (17 total)**.
+Optional send/create/open flags expose **20 tools**; the legacy FTS cache is
+hidden unless explicitly enabled. Invitations
 are outside this native-only version. The client owns the STDIO process lifetime;
 there is no listener, scheduler or autonomous background indexing service.
 
@@ -113,8 +114,8 @@ for semantics. Archive queries do not meet the universal two-second warm target.
 
 The **legacy explicit-scope FTS5 fallback** is omitted and rejected by default.
 Add `--enable-legacy-mail-search` to the server's startup arguments only when you
-need it; this exposes the distinct `mail_search_legacy` tool (17 read-only tools,
-or 20 with writes). It searches
+need it; this exposes the distinct `mail_search_legacy` tool (18 total with writes
+disabled, or 21 with writes). It searches
 complete decoded bodies plus subject/sender, supports FTS5 token/phrase/Boolean/
 column syntax and Latin diacritic folding. Its older verified Inbox scope covered
 182 messages; it does not imply that all accounts have been indexed. The following
@@ -156,7 +157,17 @@ storage. Private test evidence remains ignored under `.local/`.
 
 ## Approval and writes
 
-Read-only mode is the default and omits **and rejects** source/UI-mutating tools.
+OS access and per-action approval are separate. `doctor` reports actionable
+Calendar/Contacts states and observed host paths. The explicitly invoked
+`request_permissions` setup tool may show one native OS dialog even when source
+writes are disabled; it cannot enable send/create executors or create app data.
+It is annotated as a non-read-only, non-destructive setup operation. See
+[permission setup](PERMISSIONS.md) for first requests, denial, limited scope and
+uncertain process attribution. Ordinary reads and doctor never request grants.
+
+Read-only mode is the default and omits **and rejects** sends, event creation and
+event-opening tools. The explicitly invoked permission-setup exception above
+cannot mutate source records or activate those executors.
 Enable the optional native executors explicitly when you want writes. The guarded
 profile has been verified through actual desktop discovery and native review.
 Read annotations do not imply that native applications stop synchronizing.
@@ -170,6 +181,15 @@ accepted in either mode. Native approval/cancellation and one controlled real ST
 RFC identity and delivered attachment bytes matched; the received message was
 read through this desktop MCP with unchanged flags. Allow at least 240 seconds
 for host tool timeout in this optional mode.
+
+Mail can append one ASCII space while creating an outgoing rich-text body. The
+writer accepts exact equality or exactly that one added trailing space; it does
+not trim, collapse whitespace, accept a signature or otherwise rewrite reviewed
+content. A verification rejection leaves the draft and reports
+`failure_code="native_message_changed"`, explaining that the send command was
+not called. Other native failures keep delivery uncertain. Safe failure codes
+persist in the private outcome journal and survive replay; no automatic retry or
+draft deletion follows. An old journal migrates without resetting prior outcomes.
 
 The local policy file is:
 

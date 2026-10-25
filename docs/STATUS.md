@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 25 October 2026. Version 0.3.1. The public release starts with one clean
+Updated: 25 October 2026. Version 0.3.2. The public release starts with one clean
 initial commit under AGPL-3.0-only. The previous repository/history remains a
 private archive; no old commit objects are pushed to the public repository.
 
@@ -17,18 +17,22 @@ private archive; no old commit objects are pushed to the public repository.
 - One default search surface. Legacy FTS requires explicit startup opt-in and
   manual exact-scope maintenance; it is not silently mixed with native search.
 - Human and agent installation guides, a README copy/paste prompt and an isolated
-  installer. New installs expose 16 read tools; guarded profiles expose 19.
+  installer. New installs expose 16 read tools plus explicit permission setup
+  (17 total); guarded profiles expose 20.
+- Doctor reports concrete permission-state actions and observed host paths. A
+  separate per-domain tool requests Calendar/Contacts access through public APIs;
+  ordinary reads and startup remain nonprompting. See PERMISSIONS.md.
 
 ## Verification evidence
 
 The release is based on the tested implementation, not a fresh unverified rewrite:
 
-- **155 synthetic/protocol tests passed**, three live reads skipped by default.
+- **187 synthetic/protocol tests passed**, three live reads skipped by default.
   Ruff format/check, strict Pyright, wheel build/inspection, installer shell syntax
   and all three native script compilations passed. CI repeats the required checks.
 - Separate opt-in Mail/Calendar/Contacts native read checks passed. Normal CI never
   reads anyone's live apps or sends messages/events.
-- Actual desktop discovery showed the expected 19-tool guarded catalog, combined
+- Version 0.3.1 actual desktop discovery showed the expected 19-tool guarded catalog, combined
   `native-mail-v2` search, native approval policy and working Mail/Calendar/Contacts
   access. Legacy/native aliases are absent from the default catalog.
 - Actual desktop mixed-field search found the known dated message in **0.218 s**,
@@ -90,8 +94,9 @@ without Apple's Command Line Tools or on every macOS release.
 - Calendar attendee/invitation creation is intentionally excluded. No provider
   API/OAuth, private attendee setter, screen automation or ICS substitute is added.
 - Host approval policy, executor flags and OS privacy grants remain independent.
-  No new permission or restart is needed for the maintainer's already verified
-  desktop connection. New installations must verify their own actual host process.
+  Existing Calendar/Contacts grants work in the verified host. Reload the desktop
+  MCP connection for the new 0.3.2 catalog/doctor behavior. New installations must
+  verify their own actual host process and permission dialogs.
 
 ## README usability and Mail MCP review
 
@@ -115,9 +120,42 @@ optimization. No competitor server was run, and no native writes were made.
 
 Recommended next work is exact SQL scoping, measured inventory-cache improvements,
 then an equivalent-workload FTS comparison before any architecture change. The
-runtime remains 0.3.1 with the same search/approval behavior and single default
-search surface. Documentation links and expandable README rendering are checked
-for this update; runtime verification above remains the release evidence.
+That documentation-only revision retained 0.3.1 and one default search surface.
+Version 0.3.2 adds the permission/send-diagnostic changes below; search retrieval
+and the owner-configured approval policy retain the same behavior.
+
+## Permission setup and draft-send fix
+
+Read-only inspection tied an existing draft to its reviewed payload and uncertain
+write record. Mail's live outgoing body had one appended ASCII space; sender,
+subject and recipients matched. The old exact body guard rejects that artifact
+before calling send. Checked Sent/recipient scopes had no corresponding copy.
+Real subjects, addresses, IDs, bodies and raw logs remain private and ignored.
+
+The writer now accepts exact content or precisely one appended ASCII space;
+signatures and other whitespace/content changes remain rejected. A structured
+`native_message_changed` failure explains that send was not called. Safe failure
+codes persist across journal replay, and old-journal migration preserves uncertain
+operation IDs. Other native errors retain conservative outcome uncertainty and
+actionable Drafts/Outbox/Sent/receipt guidance. No draft deletion or automatic retry.
+
+Doctor distinguishes first requests from refusal/restriction and supplies
+`next_actions` plus observed executable/parent context. `request_permissions`
+requests one Calendar or Contacts grant; existing grants are no-ops, and denied/
+restricted states direct Settings/admin action. Callback completion alone cannot
+claim a grant. Timeouts/undecided results direct host diagnosis rather than loops.
+Host privacy metadata and macOS attribution can still block a first request.
+
+Verification: 187 tests, Ruff, strict Pyright, wheel build, installer shell syntax
+and Mail writer compilation passed. A read-only synthetic replay of captured
+draft properties reaches the corrected send branch without any native dispatch.
+A fresh SDK STDIO connection from `/tmp` discovered 17 tools with source writes
+absent, actionable doctor output and both existing-grant setup no-ops. The public
+Calendar/Contacts request callbacks also completed on already authorized domains,
+with unchanged authorization. These do not prove a first-time OS dialog on a new
+host. No live send/event or permission reset occurred. Actual desktop discovery
+of the new 20-tool guarded profile awaits connection reload; controlled delivery
+of a new approved send remains a separate gate. See decision 0016.
 
 ## Public release boundary
 

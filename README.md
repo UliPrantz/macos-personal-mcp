@@ -104,8 +104,11 @@ at this location. If it already exists, [inspect it before updating](INSTALL.md#
 
 Save and **Restart** that connection.
 
-**3. Allow access and try it.** Allow the Mail Automation, Calendar and Contacts
-dialogs for the features you use. If Mail-file search is denied, check **System
+**3. Allow access and try it.** Ask ChatGPT to run `doctor` and follow its
+`next_actions`. If Calendar or Contacts says `not_determined`, ask it to call
+`request_permissions` for that feature, then approve the macOS dialog. There may
+be no Settings entry until that first request. [Permission help](docs/PERMISSIONS.md).
+If Mail-file search is denied, check **System
 Settings → Privacy & Security → Full Disk Access** for the app or helper running
 the MCP, then restart it if macOS requests that. Ask ChatGPT:
 
@@ -158,6 +161,7 @@ doesn't exist. [Measured results and current limits](docs/STATUS.md).
 - [How the tools work and their limits](docs/TECHNICAL_DETAILS.md#implemented-surfaces-and-limits)
 - [Search syntax, native index, coverage and optional legacy cache](docs/TECHNICAL_DETAILS.md#full-body-search-and-local-state)
 - [Read-only mode, optional writes and approval settings](docs/TECHNICAL_DETAILS.md#approval-and-writes)
+- [Permission states, native dialogs and the right Settings entry](docs/PERMISSIONS.md)
 - [Development and verification](docs/TECHNICAL_DETAILS.md#development-and-verification)
 - [What we learned from other Apple Mail MCPs](docs/MAIL_MCP_COMPARISON.md)
 - [Agent installation runbook](docs/INSTALL_WITH_AGENT.md) and [maintainer handoff](docs/CODEX_HANDOFF.md)

@@ -82,9 +82,13 @@ contact. Search the last three days for a word I choose, then read one result
 using its exact returned identity. Report any incomplete search coverage.
 ```
 
-Allow the native macOS dialogs for the features you want: Mail Automation,
-Calendar and Contacts. `doctor` reports status without requesting grants, so an
-actual read may be needed to trigger a feature's dialog. For Mail-file search,
+`doctor` reports status without prompting and gives concrete `next_actions`.
+For Calendar or Contacts marked `not_determined`, ask ChatGPT to call
+`request_permissions` with `domain="calendar"` or `domain="contacts"`, one feature
+at a time. Approve the native OS dialog, then repeat `doctor` and an actual read.
+There may be no Settings entry before that first request. If access is `denied`,
+follow the reported Settings path for the app/helper named by macOS instead.
+Mail Automation can prompt during Mail account discovery. For Mail-file search,
 check **System Settings → Privacy & Security → Full Disk Access** if access is
 denied. Enable the app/process actually running the tools; the host may be
 ChatGPT or a separate background helper. If macOS asks to quit/restart it, save
@@ -95,8 +99,9 @@ mail-provider credentials or separate Google/Microsoft/iCloud login are needed.
 Accounts must already exist in the native apps. Native apps may synchronize
 through those configured accounts.
 
-Success means the **actual desktop catalog** exposes 16 read tools, including
-the combined `mail_search`, and real searches/reads work. `mail_search_native`
+Success means the **actual desktop catalog** exposes 17 tools: 16 read tools,
+including combined `mail_search`, and one explicit permission-setup tool. Real
+searches/reads must work. `mail_search_native`
 and `mail_search_legacy` should be absent. No manual body indexing is required.
 A Terminal-only test or `doctor` alone does not establish desktop access.
 
@@ -119,7 +124,7 @@ Read-only is the default. If you want writes, change the server arguments to:
 serve --enable-mail-send --enable-calendar-create --enable-calendar-open
 ```
 
-Restart that connection. This exposes 19 tools. Sends and event creation use
+Restart that connection. This exposes 20 tools. Sends and event creation use
 independent native human confirmation by default. [Approval configuration](docs/TECHNICAL_DETAILS.md#approval-and-writes)
 explains deliberate host/model delegation. The installer does not opt you into it.
 Calendar invitations/attendee creation are outside this native-only version.
@@ -138,10 +143,16 @@ Existing MCP registration, write flags and approval policy remain unchanged.
 | --- | --- |
 | No tools | Check the absolute command exists, save/restart the connection, and confirm local STDIO support |
 | Old schema or legacy tool | Restart the existing connection and rediscover tools |
+| Calendar/Contacts `not_determined`, no Settings entry | Call `request_permissions` for that domain in the same desktop connection; approve its native dialog |
+| Calendar/Contacts `denied` or `restricted` | Follow `doctor.next_actions`; use the named Settings pane or contact the device administrator |
+| Permission request fails or stays `not_determined` | Check for a pending dialog, then inspect `doctor.host` and the request error; host privacy metadata may need attention |
 | Mail folders denied | Check the actual launching app/helper's Full Disk Access, then restart if macOS requires it |
 | `native_profile` | This OS's large native index format is unvalidated; use a narrow date/account scope (at most 500 unresolved bodies) |
 | `stale_cursor` / changing source | Start a fresh search at offset zero; do not reuse its old snapshot |
 | Partial/unavailable bodies | Some local text is missing or undecodable; treat negative results as incomplete |
+| Send leaves a draft / `outcome_unknown` | Inspect Drafts, Outbox, Sent and the recipient; read `failure_code`/detail and never automatically resend |
+
+See [permission setup](docs/PERMISSIONS.md) for exact states and process attribution.
 
 To uninstall, remove only the `macos-personal` server entry. After stopping it,
 you may remove this checkout and its isolated runtime. Owned outcome journals

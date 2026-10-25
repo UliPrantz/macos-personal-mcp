@@ -8,7 +8,7 @@ from mcp import Client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
 from macos_personal_mcp.process import run_child
-from macos_personal_mcp.service import READS
+from macos_personal_mcp.service import READS, SETUP
 
 
 @pytest.mark.parametrize("mode", ["auto", "legacy"])
@@ -32,7 +32,7 @@ async def test_real_stdio_sdk_discovery_validation_and_closed_write_gate(
     (tmp_path / "permissions.toml").write_text('[approval]\ndefault="native"\n')
     async with Client(stdio_client(parameters), mode=mode, read_timeout_seconds=10) as client:
         tools = await client.list_tools()
-        assert {t.name for t in tools.tools} == {d.name for d in READS}
+        assert {t.name for t in tools.tools} == {d.name for d in READS + SETUP}
         # Blocked/invalid tools never contact the owner's native apps in default tests.
         invalid = await client.call_tool("mail_get_message", {"local_id": "1"})
         assert invalid.is_error

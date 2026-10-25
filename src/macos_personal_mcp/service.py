@@ -9,12 +9,14 @@ from pathlib import Path
 from mcp_types import Tool, ToolAnnotations
 from pydantic import ValidationError
 
+from macos_personal_mcp.access import access_action, access_granted, host_context
 from macos_personal_mcp.body_index import BodyIndex
 from macos_personal_mcp.calendar_open import CalendarOpener
 from macos_personal_mcp.calendar_writes import CalendarExecutor, EventOutcome
 from macos_personal_mcp.mail_native.client import NativeSearchClient
 from macos_personal_mcp.mail_native.contracts import NativeSearch, NativeSearchResult
 from macos_personal_mcp.models import (
+    AccessAction,
     Account,
     Accounts,
     BodySearchPage,
@@ -40,7 +42,11 @@ from macos_personal_mcp.models import (
     MessagePage,
     MessageSource,
     Model,
+    NativeAccessResult,
     NativePermissions,
+    PermissionDomain,
+    PermissionRequest,
+    PermissionResult,
     SourceKey,
 )
 from macos_personal_mcp.native import Bridge, NativeBridge
@@ -179,6 +185,16 @@ LEGACY_READS = (
         native=False,
     ),
 )
+SETUP = (
+    Definition(
+        "request_permissions",
+        "Explicit setup only: request macOS access for one selected Calendar or Contacts domain after the user asks to connect it. May show an OS consent dialog for this app/helper; no data is read or created and write executors remain disabled in read-only mode. Run doctor first. Not-determined needs a first request; denied/restricted needs Settings/admin action. Use this same desktop connection, not an unrelated Terminal process. Contacts remains read-only.",
+        PermissionRequest,
+        PermissionResult,
+        mutates=True,
+        native=False,
+    ),
+)
 WRITES = (
     Definition(
         "mail_send",
@@ -232,7 +248,7 @@ class Service:
         self.approval_policy = (
             approval_config.config.approval if approval_config is not None else ApprovalPolicy()
         )
-        self.approval_policy.validate_tools({d.name for d in READS + LEGACY_READS + WRITES})
+        self.approval_policy.validate_tools({d.name for d in READS + SETUP + LEGACY_READS + WRITES})
         for name, executor in (
             ("mail_send", mail_executor),
             ("calendar_create_event", calendar_executor),
@@ -263,6 +279,7 @@ class Service:
                     executor_enabled=d.name in exposed
                     and (
                         not d.mutates
+                        or d.name == "request_permissions"
                         or (
                             not self.read_only
                             and (
@@ -288,7 +305,7 @@ class Service:
                     )
                     and self.approval_policy.mode_for(d.name) == "native",
                 )
-                for d in READS + LEGACY_READS + WRITES
+                for d in READS + SETUP + LEGACY_READS + WRITES
             ],
         )
 
@@ -303,7 +320,7 @@ class Service:
         )
 
     def tools(self) -> list[Tool]:
-        definitions = READS if self.read_only else READS + WRITES
+        definitions = READS + SETUP if self.read_only else READS + SETUP + WRITES
         if self.enable_legacy_mail_search:
             definitions += LEGACY_READS
         return [
@@ -314,7 +331,8 @@ class Service:
                 output_schema=d.output.model_json_schema(),
                 annotations=ToolAnnotations(
                     read_only_hint=not d.mutates,
-                    destructive_hint=d.mutates and d.name != "calendar_open_event",
+                    destructive_hint=d.mutates
+                    and d.name not in {"calendar_open_event", "request_permissions"},
                     idempotent_hint=not d.mutates or d.name == "calendar_open_event",
                     open_world_hint=True,
                 ),
@@ -332,14 +350,68 @@ class Service:
         try:
             next((Path.home() / "Library" / "Mail").iterdir(), None)
             mail_source = "Mail root readable; no schema/body corpus coverage is established"
+            mail_status = "root_readable"
+        except FileNotFoundError:
+            mail_source = (
+                "Local Mail storage is absent; configure Mail and let it synchronize first"
+            )
+            mail_status = "missing"
         except OSError:
             mail_source = "Mail filesystem root is denied; authorized public Mail API ingestion is independent"
+            mail_status = "denied"
+        actions = [
+            access_action(
+                "calendar", permissions.calendar if permissions is not None else "unknown"
+            ),
+            access_action(
+                "contacts", permissions.contacts if permissions is not None else "unknown"
+            ),
+            AccessAction(
+                capability="mail_files",
+                status=mail_status,
+                action="ready"
+                if mail_status == "root_readable"
+                else "open_settings"
+                if mail_status == "denied"
+                else "diagnose_host",
+                settings_path="System Settings → Privacy & Security → Full Disk Access"
+                if mail_status == "denied"
+                else None,
+                instructions=[
+                    mail_source,
+                    "If denied, enable Full Disk Access for the actual launching app/helper shown by macOS, restart it if requested, and verify a real search. This tool cannot grant Full Disk Access."
+                    if mail_status == "denied"
+                    else "Configure the native Mail account and allow local synchronization before retrying."
+                    if mail_status == "missing"
+                    else "Verify a representative mail_search; a readable root is not proof of full search access or coverage.",
+                ],
+            ),
+        ]
+        permission_states: list[tuple[PermissionDomain, str]] = [
+            ("calendar", permissions.calendar if permissions is not None else "unknown"),
+            ("contacts", permissions.contacts if permissions is not None else "unknown"),
+        ]
         return Doctor(
             python=platform.python_version(),
             sdk=version("mcp"),
             read_only=self.read_only,
             permissions=permissions,
+            host=await host_context(),
+            next_actions=actions,
             capabilities=[
+                Capability(
+                    capability=domain + "_permission",
+                    state="unverified"
+                    if permissions is None
+                    else "available"
+                    if access_granted(domain, status)
+                    else "blocked",
+                    detail="OS authorization only; actual data reads remain separately verified. "
+                    + " ".join(access_action(domain, status).instructions),
+                )
+                for domain, status in permission_states
+            ]
+            + [
                 Capability(
                     capability="server_approval",
                     state="available",
@@ -394,7 +466,7 @@ class Service:
         )
 
     async def call(self, name: str, arguments_json: str) -> Model:
-        definitions = READS + WRITES
+        definitions = READS + SETUP + WRITES
         if self.enable_legacy_mail_search:
             definitions += LEGACY_READS
         definition = next((d for d in definitions if d.name == name), None)
@@ -402,9 +474,70 @@ class Service:
             return Failure(code="unknown_tool", message="Unknown tool")
         try:
             # Check effects before touching attachments, native apps or accepting hidden tool inputs.
-            if definition.mutates and self.read_only:
+            if definition.mutates and self.read_only and name != "request_permissions":
                 refuse_write(read_only=True)
             request = definition.input.model_validate_json(arguments_json)
+            if name == "request_permissions":
+                if not isinstance(request, PermissionRequest):
+                    raise NativeError("invalid_input", "Expected selected permission domain")
+                try:
+                    result = await self.bridge.call(name, request, NativeAccessResult)
+                except NativeError as error:
+                    raise NativeError(
+                        "permission_request_failed",
+                        "The native access request did not establish a grant (" + error.code + "). "
+                        "Run doctor in this same desktop connection and inspect its host context. "
+                        "Check for a pending OS dialog; the responsible host may need valid privacy usage descriptions. "
+                        "Do not assume a Settings entry exists or that access was denied.",
+                    ) from error
+                if result.domain != request.domain:
+                    raise NativeError(
+                        "invalid_native_response", "Permission result belongs to a different domain"
+                    )
+                guidance = access_action(request.domain, result.after)
+                if result.request_attempted and not result.request_completed and not result.granted:
+                    guidance = AccessAction(
+                        capability=request.domain,
+                        status=result.after,
+                        action="diagnose_host",
+                        instructions=[
+                            "The access request did not complete within 90 seconds. Check for a pending macOS dialog before retrying.",
+                            "Run doctor in this same desktop connection after the dialog is resolved.",
+                        ],
+                    )
+                elif (
+                    result.request_attempted
+                    and not result.granted
+                    and result.after == "not_determined"
+                ):
+                    guidance = AccessAction(
+                        capability=request.domain,
+                        status=result.after,
+                        action="diagnose_host",
+                        instructions=[
+                            "The native request completed but macOS recorded no permission decision. Check for a pending dialog and the responsible host's privacy usage descriptions.",
+                            "Run doctor in this same connection; do not report denied access or repeatedly request it without diagnosing the host.",
+                        ],
+                    )
+                elif (
+                    result.request_attempted
+                    and result.request_completed
+                    and result.after == "write_only"
+                ):
+                    guidance = access_action("calendar", "denied").model_copy(
+                        update={"status": "write_only"}
+                    )
+                return PermissionResult(
+                    domain=result.domain,
+                    before=result.before,
+                    after=result.after,
+                    request_attempted=result.request_attempted,
+                    request_completed=result.request_completed,
+                    granted=result.granted,
+                    error_code=result.error_code,
+                    guidance=guidance,
+                    host=await host_context(),
+                )
             if definition.mutates:
                 if name == "calendar_create_event" and self.calendar_executor is not None:
                     if not isinstance(request, EventCreate):

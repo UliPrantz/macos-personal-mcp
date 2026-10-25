@@ -311,6 +311,63 @@ class NativePermissions(Model):
     contacts: str
 
 
+type PermissionDomain = Literal["calendar", "contacts"]
+
+
+class PermissionRequest(Model):
+    domain: PermissionDomain
+
+
+class AccessAction(Model):
+    capability: Literal["calendar", "contacts", "mail_files"]
+    status: str
+    action: Literal[
+        "ready", "request_permission", "open_settings", "administrator", "diagnose_host"
+    ]
+    instructions: list[str]
+    settings_path: str | None = None
+    tool: Literal["request_permissions"] | None = None
+    arguments: PermissionRequest | None = None
+
+
+class HostContext(Model):
+    executable: str
+    process_id: int
+    parent_process_id: int
+    parent_command: str | None = None
+    attribution: str = (
+        "Observed launch paths only. macOS chooses the responsible app/helper shown in its "
+        "permission dialog and Settings; these paths do not establish that attribution. "
+        "The entry may not be named macos-personal. Use this same desktop connection for requests and verification."
+    )
+
+
+class NativeAccessResult(Model):
+    domain: PermissionDomain
+    before: str
+    after: str
+    request_attempted: bool
+    request_completed: bool
+    granted: bool
+    error_code: int | None = None
+
+    @model_validator(mode="after")
+    def observed_grant(self) -> Self:
+        expected = (
+            self.after == "full_access"
+            if self.domain == "calendar"
+            else self.after in {"authorized", "limited"}
+        )
+        if self.granted != expected:
+            raise ValueError("Access grant must match the observed native status")
+        return self
+
+
+class PermissionResult(NativeAccessResult):
+    guidance: AccessAction
+    host: HostContext
+
+
 class Capability(Model):
     capability: str
     state: Literal["available", "blocked", "unverified"]
@@ -324,6 +381,8 @@ class Doctor(Model):
     read_only: bool
     permissions: NativePermissions | None
     capabilities: list[Capability]
+    host: HostContext | None = None
+    next_actions: list[AccessAction] = Field(default_factory=lambda: list[AccessAction]())
 
 
 class Failure(Model):

@@ -1,6 +1,6 @@
 """Public EventKit selectors used by the adapters; no participant/private setters."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Self
 
 from Foundation import NSURL, NSDate, NSError, NSObject, NSPredicate, NSTimeZone
@@ -60,6 +60,9 @@ class EKEvent(NSObject):
     def isDetached(self) -> bool: ...
 
 class EKEventStore(NSObject):
+    def requestFullAccessToEventsWithCompletion_(
+        self, completion: Callable[[bool, NSError | None], None]
+    ) -> None: ...
     def saveEvent_span_commit_error_(
         self, event: EKEvent, span: int, commit: bool, error: None
     ) -> tuple[bool, NSError | None]: ...

@@ -49,6 +49,9 @@ class CNContactFetchRequest(NSObject):
     def setUnifyResults_(self, unify: bool) -> None: ...
 
 class CNContactStore(NSObject):
+    def requestAccessForEntityType_completionHandler_(
+        self, entity: int, completion: Callable[[bool, NSError | None], None]
+    ) -> None: ...
     @classmethod
     def authorizationStatusForEntityType_(cls, entity: int) -> int: ...
     def enumerateContactsWithFetchRequest_error_usingBlock_(
