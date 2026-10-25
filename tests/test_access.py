@@ -1,19 +1,23 @@
 """Synthetic permission states only; never request access to the owner's apps."""
 
+import io
 from pathlib import Path
 
 import pytest
 from mcp import Client
 from pydantic import ValidationError
 
-from macos_personal_mcp.access import access_action
+from macos_personal_mcp.access import CONTACTS_HOST_REQUIREMENT, access_action
 from macos_personal_mcp.models import (
+    ContactsBackend,
     Doctor,
+    Empty,
     Failure,
     HostContext,
     Model,
     NativeAccessResult,
     NativePermissions,
+    NativeReply,
     PermissionDomain,
     PermissionRequest,
     PermissionResult,
@@ -82,6 +86,40 @@ def test_repeated_request_cannot_override_denial_or_restrictions(
     )
 
 
+@pytest.mark.parametrize("backend", ["framework", "contacts-app"])
+@pytest.mark.parametrize("status", ["denied", "not_determined", "unknown"])
+def test_contacts_host_limit_is_conditional_and_keeps_compatible_hosts_supported(
+    backend: ContactsBackend, status: str
+) -> None:
+    action = access_action("contacts", status, backend)
+    assert CONTACTS_HOST_REQUIREMENT in action.instructions
+    text = " ".join(action.instructions)
+    assert "compatible responsible app" in text and "macOS user grant" in text
+    assert "com.apple.security.personal-information.addressbook" in text
+    assert "NSContactsUsageDescription" in text
+    assert "ChatGPT Desktop 26.1021.31345" in text
+    assert "when macOS attributes access to that app" in text
+    assert "Settings and Automation consent cannot add them" in text
+    assert "A generic denied status alone does not identify missing declarations" in text
+    if status != "not_determined":
+        assert action.tool is None
+
+
+def test_unknown_automation_is_not_reported_as_observed_denial() -> None:
+    action = access_action("contacts", "unknown", "contacts-app")
+    assert action.action == "diagnose_host" and action.settings_path is None
+    text = " ".join(action.instructions)
+    assert "Automation status is unknown" in text
+    assert "Automation is not authorized" not in text
+
+
+@pytest.mark.parametrize("status", ["not_determined", "denied", "unknown", "full_access"])
+def test_contacts_host_limitation_does_not_change_calendar_guidance(status: str) -> None:
+    action = access_action("calendar", status)
+    assert CONTACTS_HOST_REQUIREMENT not in action.instructions
+    assert "Address Book" not in " ".join(action.instructions)
+
+
 @pytest.mark.parametrize(
     ("domain", "status"),
     [("calendar", "full_access"), ("contacts", "authorized"), ("contacts", "limited")],
@@ -107,8 +145,17 @@ class PermissionBridge:
         contacts: str = "not_determined",
         result: NativeAccessResult | None = None,
         error: bool = False,
+        contacts_backend: ContactsBackend = "framework",
+        framework_contacts: str = "unknown",
+        framework_error: bool = False,
     ) -> None:
-        self.permissions = NativePermissions(calendar=calendar, contacts=contacts)
+        self.permissions = NativePermissions(
+            calendar=calendar, contacts=contacts, contacts_backend=contacts_backend
+        )
+        self.framework_permissions = NativePermissions(
+            calendar=calendar, contacts=framework_contacts
+        )
+        self.framework_error = framework_error
         self.result = result
         self.error = error
         self.calls: list[str] = []
@@ -119,6 +166,10 @@ class PermissionBridge:
             raise NativeError("native_failure", "Synthetic native failure")
         if operation == "permissions":
             return output.model_validate_json(self.permissions.model_dump_json())
+        if operation == "contacts_framework_permissions":
+            if self.framework_error:
+                raise NativeError("native_failure", "Synthetic framework inspection failure")
+            return output.model_validate_json(self.framework_permissions.model_dump_json())
         if operation == "request_permissions" and self.result is not None:
             assert isinstance(request, PermissionRequest)
             return output.model_validate_json(self.result.model_dump_json())
@@ -171,6 +222,160 @@ async def test_doctor_denied_and_limited_states_remain_distinct(
     assert calendar.settings_path is not None and calendar.settings_path.endswith("Calendars")
     assert contacts.action == "ready" and contacts.status == "limited"
     assert "selected contacts" in " ".join(contacts.instructions)
+
+
+@pytest.mark.parametrize("framework_status", ["denied", "not_determined", "unknown", "restricted"])
+async def test_automation_grant_does_not_claim_contacts_data_is_ready(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, framework_status: str
+) -> None:
+    monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    bridge = PermissionBridge(
+        calendar="full_access",
+        contacts="authorized",
+        contacts_backend="contacts-app",
+        framework_contacts=framework_status,
+    )
+    service = Service(bridge=bridge, contacts_backend="contacts-app")
+    result = await service.doctor()
+    assert bridge.calls == ["permissions", "contacts_framework_permissions"]
+    assert "contacts_framework_permissions" not in {t.name for t in service.tools()}
+    assert result.permissions == bridge.permissions
+    contacts = next(a for a in result.next_actions if a.capability == "contacts")
+    assert contacts.status == "authorized" and contacts.action == "diagnose_host"
+    assert contacts.tool is None and contacts.arguments is None and contacts.settings_path is None
+    text = " ".join(contacts.instructions)
+    assert "Underlying Contacts framework status: " + framework_status in text
+    assert "Repeating Automation setup does not supply" in text
+    assert "not a universal prerequisite" in text
+    contacts_capability = next(
+        c for c in result.capabilities if c.capability == "contacts_permission"
+    )
+    assert contacts_capability.state == "unverified"
+    assert "Underlying Contacts framework status: " + framework_status in contacts_capability.detail
+    calendar = next(a for a in result.next_actions if a.capability == "calendar")
+    assert calendar.action == "ready" and calendar.status == "full_access"
+    calendar_capability = next(
+        c for c in result.capabilities if c.capability == "calendar_permission"
+    )
+    assert calendar_capability.state == "available"
+
+
+@pytest.mark.parametrize("framework_status", ["authorized", "limited"])
+async def test_contacts_diagnostic_grants_still_require_a_real_read(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, framework_status: str
+) -> None:
+    monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    bridge = PermissionBridge(
+        contacts="authorized", contacts_backend="contacts-app", framework_contacts=framework_status
+    )
+    result = await Service(bridge=bridge, contacts_backend="contacts-app").doctor()
+    contacts = next(a for a in result.next_actions if a.capability == "contacts")
+    assert contacts.action == "ready"
+    assert "does not certify a successful data read" in " ".join(contacts.instructions)
+    assert "selected contacts" in " ".join(contacts.instructions)
+    assert (
+        next(c for c in result.capabilities if c.capability == "native_reads").state == "unverified"
+    )
+    assert bridge.calls == ["permissions", "contacts_framework_permissions"]
+
+
+async def test_framework_diagnostic_failure_preserves_observed_automation_grant(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
+    bridge = PermissionBridge(
+        contacts="authorized", contacts_backend="contacts-app", framework_error=True
+    )
+    result = await Service(bridge=bridge, contacts_backend="contacts-app").doctor()
+    assert result.permissions == bridge.permissions
+    contacts = next(a for a in result.next_actions if a.capability == "contacts")
+    assert contacts.action == "diagnose_host" and contacts.tool is None
+    assert "Underlying Contacts framework status: unknown" in " ".join(contacts.instructions)
+
+
+async def test_automation_setup_grant_means_event_delivery_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
+    native = NativeAccessResult(
+        domain="contacts",
+        route="contacts-app",
+        before="authorized",
+        after="authorized",
+        request_attempted=False,
+        request_completed=False,
+        granted=True,
+    )
+    bridge = PermissionBridge(result=native)
+    result = await Service(bridge=bridge, contacts_backend="contacts-app").call(
+        "request_permissions", '{"domain":"contacts"}'
+    )
+    assert isinstance(result, PermissionResult) and result.granted
+    assert result.route == "contacts-app"
+    assert "Apple Events delivery only" in " ".join(result.guidance.instructions)
+    assert "Run doctor" in " ".join(result.guidance.instructions)
+    assert result.guidance.tool is None
+    assert bridge.calls == ["request_permissions"]
+
+
+def test_framework_diagnostic_worker_preserves_existing_permission_wire_schema(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from macos_personal_mcp import native_worker
+
+    expected = NativePermissions(calendar="full_access", contacts="denied")
+    monkeypatch.setattr(native_worker, "native_permissions", lambda: expected)
+
+    def forbidden_automation() -> str:
+        raise AssertionError("Framework diagnostic must not request Automation authorization")
+
+    def forbidden_read(operation: str, payload: str) -> Model:
+        raise AssertionError("Framework diagnostic must not read contact data")
+
+    monkeypatch.setattr(
+        "macos_personal_mcp.native_contacts_app.automation_status", forbidden_automation
+    )
+    monkeypatch.setattr("macos_personal_mcp.native_contacts_app.read_contacts", forbidden_read)
+    monkeypatch.setattr(native_worker, "read_contacts", forbidden_read)
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"{}")))
+    monkeypatch.setattr(
+        "sys.argv", ["native_worker", "contacts_framework_permissions", "contacts-app"]
+    )
+    native_worker.main()
+    reply = NativeReply.model_validate_json(capsys.readouterr().out)
+    assert reply.failure is None and reply.result_json is not None
+    observed = NativePermissions.model_validate_json(reply.result_json)
+    assert observed == expected
+    assert set(observed.model_dump()) == {"calendar", "contacts", "contacts_backend"}
+
+
+async def test_framework_diagnostic_bridge_uses_nonprompting_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from macos_personal_mcp.native import NativeBridge
+
+    calls: list[list[str]] = []
+    expected = NativePermissions(calendar="full_access", contacts="denied")
+
+    async def synthetic_child(argv: list[str], payload: bytes, *, timeout: float) -> bytes:
+        calls.append(argv)
+        assert timeout == 45
+        assert Empty.model_validate_json(payload) == Empty()
+        return NativeReply(result_json=expected.model_dump_json()).model_dump_json().encode()
+
+    monkeypatch.setattr("macos_personal_mcp.native.run_child", synthetic_child)
+    observed = await NativeBridge(contacts_backend="contacts-app").call(
+        "contacts_framework_permissions", Empty(), NativePermissions
+    )
+    assert observed == expected
+    assert calls[0][-3:] == [
+        "macos_personal_mcp.native_worker",
+        "contacts_framework_permissions",
+        "contacts-app",
+    ]
 
 
 async def test_permission_inspection_failure_does_not_invent_denial(

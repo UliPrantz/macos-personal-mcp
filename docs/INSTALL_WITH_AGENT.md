@@ -94,10 +94,12 @@ save progress and tell the person exactly how to resume before restarting.
 Run `doctor` through the actual desktop tools. Mail Automation, Calendar,
 Contacts and Mail-folder Full Disk Access are separate permissions. Follow
 `doctor.next_actions` for an observed missing permission on a requested feature.
-For `not_determined`, call `request_permissions` for the chosen `calendar` or
-`contacts` domain with the user's setup consent; let them answer the OS dialog.
-Do not send them to Settings looking for a nonexistent entry first. Denied and
-restricted states require the reported Settings/admin action. Doctor and ordinary
+For `not_determined` on a compatible host, call `request_permissions` for the
+chosen `calendar` or `contacts` domain with the user's setup consent; let them
+answer the OS dialog. Do not send them to Settings looking for a nonexistent
+entry first. Denied status can also mean missing host declarations, not a user
+refusal; follow the returned diagnosis before suggesting Settings. Restricted
+states need the reported administrator action. Doctor and ordinary
 Calendar/Contacts readers never prompt. Mail account discovery can request normal
 Mail Automation access. Requests and verification must use this same desktop
 connection; an unrelated Terminal grant proves nothing about it.
@@ -109,12 +111,23 @@ keep asking for an irrelevant process's permission. An incomplete/failed request
 is not proof of denial; inspect a pending dialog and host privacy usage metadata.
 See [permission setup](PERMISSIONS.md).
 
+Contacts is supported on compatible hosts. A hardened-runtime responsible host
+needs `com.apple.security.personal-information.addressbook`,
+`NSContactsUsageDescription` and a macOS Contacts grant. The tested direct ChatGPT
+26.1021.31345 lacks those declarations. Its optional Contacts.app route also failed
+after Automation consent; do not present backend switching as a fix. Keep the
+tools installed, report Contacts as blocked for that host, and finish verifying
+Mail and Calendar. Do not repeatedly request access, reset permissions, modify
+signatures or build another helper. If the host is later updated, verify its
+actual declarations and read behavior rather than assuming the old block persists.
+
 Verify from the **desktop tool catalog**, rather than only Terminal:
 
 1. New read-only install: 17 tools (16 reads plus `request_permissions`), combined
    `mail_search` present; legacy/native aliases absent. A guarded profile has 20 tools.
-2. Call `doctor`, Mail account discovery, calendar discovery and one-contact
-   pagination. Keep private contents out of the installation report.
+2. Call `doctor`, Mail account discovery and calendar discovery. On a compatible
+   host, verify one-contact pagination; otherwise report the specific Contacts
+   blocker and continue. Keep private contents out of the installation report.
 3. Search a narrow recent date range with a common keyword, then an unlikely
    negative. Inspect incomplete/partial counts and unchanged flags. If no positive
    is found, choose a known subject token from a bounded metadata listing.
@@ -134,7 +147,9 @@ effective approval mode, actual desktop checks passed and any precise blocker.
 Give the user two or three example requests from docs/USAGE.md. If a reload or
 permission still blocks actual desktop calls, mark installation **pending that
 step** and continue verification when they return. Do not call it fully connected
-because package installation or `doctor` succeeded.
+because package installation or `doctor` succeeded. A diagnosed host incompatibility
+is different from a pending grant: state which domains work and which remain
+blocked, rather than sending the user through another permission loop.
 
 The copy/paste workflow is inspired by
 [Framer's external-agent install prompt](https://www.framer.com/agents/external/).

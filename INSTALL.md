@@ -3,6 +3,9 @@
 Connect ChatGPT desktop to the Mail, Calendar and Contacts apps on your Mac.
 Choose **let an agent install it** or **install it yourself**. New installations
 start read-only. Existing owner-selected write/approval settings are preserved.
+Contacts requires a compatible calling app: the tested direct ChatGPT desktop
+26.1021.31345 lacks its required Contacts declarations. Mail and Calendar can
+still work. See [host compatibility](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
 
 ## Let an agent install it
 
@@ -77,15 +80,18 @@ The installer prepares the snippet; it does not edit host configuration itself.
 Ask ChatGPT:
 
 ```text
-Check macos-personal with doctor. List my Mail accounts, calendars and one
-contact. Search the last three days for a word I choose, then read one result
-using its exact returned identity. Report any incomplete search coverage.
+Check macos-personal with doctor. List my Mail accounts and calendars; read one
+contact only if this host supports Contacts. Search the last three days for a
+word I choose, then read one result using its exact returned identity. Report
+incomplete search coverage and any host compatibility blocker.
 ```
 
 `doctor` reports status without prompting and gives concrete `next_actions`.
-For Calendar or Contacts marked `not_determined`, ask ChatGPT to call
-`request_permissions` with `domain="calendar"` or `domain="contacts"`, one feature
-at a time. Approve the native OS dialog, then repeat `doctor` and an actual read.
+For a compatible host with Calendar or Contacts marked `not_determined`, ask
+ChatGPT to call `request_permissions` with `domain="calendar"` or
+`domain="contacts"`, one feature at a time. Approve the native OS dialog, then
+repeat `doctor` and an actual read. Skip repeated Contacts requests when the
+calling app is known to lack its required entitlement.
 There may be no Settings entry before that first request. A `denied` result can
 also mean the host lacks required native declarations. Follow returned guidance;
 use Settings only if the relevant app/helper has an entry. See the
@@ -103,8 +109,9 @@ through those configured accounts.
 
 Success means the **actual desktop catalog** exposes 17 tools: 16 read tools,
 including combined `mail_search`, and one explicit permission-setup tool. Real
-searches/reads must work. `mail_search_native`
-and `mail_search_legacy` should be absent. No manual body indexing is required.
+searches/reads must work for each supported domain; report a host-blocked Contacts
+capability separately. `mail_search_native` and `mail_search_legacy` should be
+absent. No manual body indexing is required.
 A Terminal-only test or `doctor` alone does not establish desktop access.
 
 ## Start using it
@@ -139,11 +146,19 @@ and rerun `sh scripts/install.sh`, then restart only this MCP connection.
 For a development checkout use `sh scripts/install.sh --dev` to retain dev tools.
 Existing MCP registration, write flags and approval policy remain unchanged.
 
-## Contacts when your AI app cannot request direct access
+## Contacts host compatibility and optional backend
 
-If the host cannot request Contacts access, you can deliberately select the
-native Contacts.app route by adding these **two arguments** to its existing
-server arguments:
+Contacts support is included for compatible hosts. A hardened-runtime calling app
+needs `com.apple.security.personal-information.addressbook`,
+`NSContactsUsageDescription` and a macOS Contacts grant. The tested direct ChatGPT
+build lacks the first two. Only an updated app from its publisher can supply its
+missing signed declarations; Settings and MCP approval configuration cannot.
+If a future ChatGPT update adds them, the existing Contacts tools can request
+permission and be verified without a new integration.
+
+The default `framework` backend uses Apple's Contacts API. Compatible hosts can
+also deliberately select the native Contacts.app route by adding these **two
+arguments** to their existing server arguments:
 
 ```text
 --contacts-backend contacts-app
@@ -155,12 +170,18 @@ For example, a read-only installation uses:
 serve --read-only --contacts-backend contacts-app
 ```
 
-Restart the existing connection. Ask the assistant to run `doctor`, confirm
-`permissions.contacts_backend` is `contacts-app`, then call `request_permissions`
-with `domain="contacts"` if requested. Setup can open Contacts.app in the background
-and macOS may ask whether the host may **control Contacts**. This is native
-Apple Events, with no screenshots, clicks, provider login or contact writes.
-Its Settings entry is under **Privacy & Security → Automation**, not Contacts.
+**This is not a workaround for ChatGPT's missing Contacts entitlement.** Automation
+consent permits delivery of Apple Events; Contacts.app can still require the
+original calling app's Contacts authorization. That exact failure was observed
+in the tested direct ChatGPT connection after Automation had been granted.
+
+On a compatible host, restart the existing connection and check
+`doctor.permissions.contacts_backend` and `next_actions`. Explicit
+`request_permissions(domain="contacts")` can open Contacts.app in the background
+and request **Automation** consent. This uses native Apple Events, with no
+screenshots, clicks, provider login or contact writes. Automation's Settings entry
+is under **Privacy & Security → Automation**; the underlying Contacts data gate
+remains separate. Do not treat `granted=true` for Automation as proof of a read.
 
 Verify a contact list and name/email/phone search from that same connection.
 This route returns records rather than unified contacts, so duplicates across
@@ -176,10 +197,11 @@ No automatic fallback is used. See [permission details](docs/PERMISSIONS.md).
 | No tools | Check the absolute command exists, save/restart the connection, and confirm local STDIO support |
 | Old schema or legacy tool | Restart the existing connection and rediscover tools |
 | `request_permissions` missing after updating | Restart the existing MCP connection; use a fresh local chat if its catalog remains cached. `doctor.server_version` should show the installed revision |
-| Calendar/Contacts `not_determined`, no Settings entry | Call `request_permissions` for that domain in the same desktop connection; approve its native dialog |
-| Calendar/Contacts `denied` or `restricted` | Follow `doctor.next_actions`; use the named Settings pane or contact the device administrator |
+| Calendar/Contacts `not_determined`, no Settings entry | On a compatible host, call `request_permissions` for that domain in the same connection; a known missing entitlement needs a host update |
+| Calendar/Contacts `denied` or `restricted` | Follow `doctor.next_actions`; distinguish a host declaration block from a Settings decision or administrator restriction |
 | Permission request fails or stays `not_determined` | Check for a pending dialog, then inspect `doctor.host` and the request error; host privacy metadata may need attention |
-| Contacts error 100 without a dialog or Settings entry | Check the host's Contacts entitlement and usage description; see the [direct-host blocker and researched alternatives](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt) |
+| Contacts error 100 without a dialog or Settings entry | Check the host's Contacts entitlement and usage description; see the [host compatibility diagnosis](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt) |
+| Contacts Automation granted but reads fail | Inspect the underlying Contacts host authorization; an Automation grant does not fix missing Contacts entitlement |
 | Mail folders denied | Check the actual launching app/helper's Full Disk Access, then restart if macOS requires it |
 | `native_profile` | This OS's large native index format is unvalidated; use a narrow date/account scope (at most 500 unresolved bodies) |
 | `stale_cursor` / changing source | Start a fresh search at offset zero; do not reuse its old snapshot |

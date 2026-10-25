@@ -10,7 +10,12 @@ from mcp_types import Tool, ToolAnnotations
 from pydantic import ValidationError
 
 from macos_personal_mcp import __version__
-from macos_personal_mcp.access import access_action, access_granted, host_context
+from macos_personal_mcp.access import (
+    CONTACTS_HOST_REQUIREMENT,
+    access_action,
+    access_granted,
+    host_context,
+)
 from macos_personal_mcp.body_index import BodyIndex
 from macos_personal_mcp.calendar_open import CalendarOpener
 from macos_personal_mcp.calendar_writes import CalendarExecutor, EventOutcome
@@ -190,7 +195,7 @@ LEGACY_READS = (
 SETUP = (
     Definition(
         "request_permissions",
-        "Explicit setup only: request macOS access for one selected Calendar or Contacts domain after the user asks to connect it. May show an OS consent dialog for this app/helper; no data is read or created and write executors remain disabled in read-only mode. Run doctor first. Not-determined needs a first request; denied/restricted needs Settings/admin action. Use this same desktop connection, not an unrelated Terminal process. Contacts remains read-only.",
+        "Explicit setup only: request macOS access for one selected Calendar or Contacts domain after the user asks to connect it. May show an OS consent dialog for this app/helper; no data is read or created and write executors remain disabled in read-only mode. Run doctor first and follow next_actions. A compatible host with not-determined access needs a first request; a known missing host entitlement needs an app update, not repeated requests or Settings toggles. Use this same desktop connection, not an unrelated Terminal process. Contacts remains read-only.",
         PermissionRequest,
         PermissionResult,
         mutates=True,
@@ -315,15 +320,26 @@ class Service:
 
     def description(self, definition: Definition) -> str:
         if definition.name.startswith("contacts_"):
-            return definition.description + (
-                " Selected backend: Contacts.app Apple Events; Automation setup required, no UI automation; IDs use contacts-app: prefix, records not unified across sources."
-                if self.contacts_backend == "contacts-app"
-                else " Selected backend: public unified CNContactStore; direct Contacts permission required."
-            )
-        if definition.name == "request_permissions" and self.contacts_backend == "contacts-app":
             return (
                 definition.description
-                + " Contacts setup uses Automation to Contacts.app and may open it in the background; use Automation settings, not the Contacts pane."
+                + " "
+                + CONTACTS_HOST_REQUIREMENT
+                + (
+                    " Selected backend: Contacts.app Apple Events; Automation consent also required and alone does not prove data access; no UI automation; IDs use contacts-app: prefix, records not unified across sources."
+                    if self.contacts_backend == "contacts-app"
+                    else " Selected backend: public unified CNContactStore."
+                )
+            )
+        if definition.name == "request_permissions":
+            return (
+                definition.description
+                + " "
+                + CONTACTS_HOST_REQUIREMENT
+                + (
+                    " Contacts setup requests Automation to Contacts.app and may open it in the background. granted=true covers that Automation grant only; run doctor and verify a read before claiming Contacts works."
+                    if self.contacts_backend == "contacts-app"
+                    else ""
+                )
             )
         if definition.name not in REVIEWED_TOOLS:
             return definition.description
@@ -362,6 +378,15 @@ class Service:
             permission_note = "Native authorization status inspected without a permission request"
         except NativeError as error:
             permission_note = error.detail
+        contacts_framework_status: str | None = None
+        if self.contacts_backend == "contacts-app":
+            try:
+                framework_permissions = await self.bridge.call(
+                    "contacts_framework_permissions", Empty(), NativePermissions
+                )
+                contacts_framework_status = framework_permissions.contacts
+            except NativeError:
+                contacts_framework_status = "unknown"
         try:
             next((Path.home() / "Library" / "Mail").iterdir(), None)
             mail_source = "Mail root readable; no schema/body corpus coverage is established"
@@ -382,6 +407,7 @@ class Service:
                 "contacts",
                 permissions.contacts if permissions is not None else "unknown",
                 self.contacts_backend,
+                contacts_framework_status,
             ),
             AccessAction(
                 capability="mail_files",
@@ -421,11 +447,21 @@ class Service:
                     capability=domain + "_permission",
                     state="unverified"
                     if permissions is None
+                    or (
+                        domain == "contacts"
+                        and self.contacts_backend == "contacts-app"
+                        and status == "authorized"
+                        and contacts_framework_status not in {"authorized", "limited"}
+                    )
                     else "available"
                     if access_granted(domain, status)
                     else "blocked",
                     detail="OS authorization only; actual data reads remain separately verified. "
-                    + " ".join(access_action(domain, status, self.contacts_backend).instructions),
+                    + " ".join(
+                        access_action(
+                            domain, status, self.contacts_backend, contacts_framework_status
+                        ).instructions
+                    ),
                 )
                 for domain, status in permission_states
             ]
@@ -534,7 +570,8 @@ class Service:
                         settings_path="System Settings → Privacy & Security → Contacts",
                         instructions=[
                             "macOS refused the Contacts request (error 100). This alone does not prove the user declined it.",
-                            "If no Contacts dialog or Settings entry appeared, inspect the responsible host for com.apple.security.personal-information.addressbook and NSContactsUsageDescription. Direct framework access needs a host fix or properly authorized native helper if these are missing; repeating the request will not add them. See docs/PERMISSION_MCP_COMPARISON.md for researched alternatives; no fallback is enabled.",
+                            CONTACTS_HOST_REQUIREMENT,
+                            "If no Contacts dialog or Settings entry appeared, inspect the responsible host's signed declarations. Repeating the request will not add missing declarations. See docs/PERMISSIONS.md; no fallback is enabled.",
                             "If the user actually declined a dialog and the host is listed in Contacts settings, enable that existing entry and verify again.",
                             "MCP send/create approval policy is separate and cannot grant OS Contacts access.",
                         ],

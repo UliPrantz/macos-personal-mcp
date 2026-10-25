@@ -125,8 +125,11 @@ def test_ungranted_read_stops_before_any_event_or_prompt(
         pytest.fail("An ungranted read must not dispatch an Apple event")
 
     monkeypatch.setattr(native.AppleEventsReader, "read", unexpected)
-    with pytest.raises(NativeError, match="ordinary reads do not prompt"):
+    with pytest.raises(NativeError, match="ordinary reads do not prompt") as raised:
         native.read_contacts("contacts_list", "{}")
+    assert "follow next_actions" in raised.value.detail
+    assert "com.apple.security.personal-information.addressbook" in raised.value.detail
+    assert "then explicit request_permissions" not in raised.value.detail
 
 
 @dataclass
@@ -142,14 +145,20 @@ class ReplyEvent:
         return self.reply, None
 
 
-def test_revocation_after_preflight_still_forbids_prompt_and_propagates_failure() -> None:
+@pytest.mark.parametrize("native_code", [-1713, -1743, -1744, -10004, -10005])
+def test_revocation_after_preflight_still_forbids_prompt_and_propagates_failure(
+    native_code: int,
+) -> None:
     reply = Descriptor.appleEventWithEventClass_eventID_targetDescriptor_returnID_transactionID_(
         code("aevt"), code("ansr"), Descriptor.nullDescriptor(), -1, 0
     )
-    reply.setParamDescriptor_forKeyword_(Descriptor.descriptorWithInt32_(-1744), code("errn"))
+    reply.setParamDescriptor_forKeyword_(Descriptor.descriptorWithInt32_(native_code), code("errn"))
     event = ReplyEvent(reply)
-    with pytest.raises(NativeError, match="rejected a read"):
+    with pytest.raises(NativeError, match="rejected a read") as raised:
         read_reply(event)
+    assert "reply error " + str(native_code) in raised.value.detail
+    assert "com.apple.security.personal-information.addressbook" in raised.value.detail
+    assert "ChatGPT Desktop 26.1021.31345" in raised.value.detail
     assert event.options & 0x00020000  # Apple's kAEDoNotPromptForUserConsent.
     assert event.options & 0x00000010  # kAENeverInteract.
 

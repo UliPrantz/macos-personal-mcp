@@ -1,6 +1,7 @@
 # 0017: Explicit Contacts.app Automation backend
 
-Status: accepted, 25 October 2026.
+Status: accepted, 25 October 2026. Host-support conclusion corrected by decision
+0018: this backend does not repair the tested ChatGPT host's missing entitlement.
 
 ## Context
 
@@ -41,8 +42,10 @@ the background and request Automation consent. The potentially blocking request
 runs off the main thread; the existing worker timeout/cancellation/reaping boundary
 still applies. Already granted or denied authorization does not re-prompt. Doctor,
 tool descriptions and request results identify the selected route and direct the
-person to **Automation**, not Contacts privacy settings. Calendar still uses
-EventKit and its separate Calendar grant.
+person to **Automation** for Apple Events consent. Contacts.app may also enforce
+the caller's separate Contacts privacy authorization; Automation consent alone
+does not establish data access. Calendar still uses EventKit and its separate
+Calendar grant.
 
 Contacts.app exposes records that are not unified across sources. IDs use the
 `contacts-app:` namespace and must be searched afresh after switching backends.
@@ -56,6 +59,7 @@ that a model can use to broaden an existing grant.
 Normal tests use synthetic columns, descriptors and request backends, including
 permission revocation, identity/order changes, missing fields and empty controls.
 Live SDK checks are separate and record counts/timings in STATUS.md. A successful
-test from the maintainer's authorized launcher does not certify the direct
-ChatGPT host: that connection must reload, report the selected route, explicitly
-request Automation if needed and then perform actual reads.
+test from the maintainer's authorized launcher does not certify another host.
+The direct ChatGPT test subsequently failed despite Automation consent; native
+logs confirmed the same missing Address Book entitlement on that route. See
+decision 0018 and STATUS.md. Do not repeat permission requests as a workaround.

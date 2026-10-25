@@ -334,9 +334,9 @@ def main() -> None:
         payload = sys.stdin.buffer.read(2_000_001).decode()
         if len(payload) > 2_000_000:
             raise NativeError("input_limit", "Native worker input exceeds its bound")
-        if operation == "permissions":
+        if operation in {"permissions", "contacts_framework_permissions"}:
             result: Model = native_permissions()
-            if backend == "contacts-app":
+            if backend == "contacts-app" and operation == "permissions":
                 from macos_personal_mcp.native_contacts_app import automation_status
 
                 try:

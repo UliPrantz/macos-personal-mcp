@@ -5,7 +5,12 @@ You can ask normally; the model supplies tool arguments. Try:
 - “Find emails about my project deadline from the past three days.”
 - “Find the email containing ‘existing and prepaid credits’ and read it.”
 - “What's in my calendar tomorrow?”
-- “Find Alex's email address in my contacts.”
+- “Find Alex's email address in my contacts.” (Requires a compatible calling app.)
+
+Contacts remains supported, but the tested direct ChatGPT desktop build lacks its
+required Contacts entitlement. Changing Settings or granting Automation cannot
+add that declaration. Other compatible hosts can use Contacts now; future app
+updates can be checked with the same tools. See [host compatibility](PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
 
 ## Search, then read
 

@@ -49,6 +49,12 @@ not instructions inherited by this project.
   Contacts.app Automation is an explicit startup backend, never a fallback after
   denied/limited framework access. Its ordinary reads must set no-prompt event
   flags; only explicit setup may launch the app and request Automation consent.
+  Automation consent does not establish Contacts data access: Contacts.app can
+  check the original caller's Contacts authorization. Keep Contacts supported for
+  compatible hosts, but report the tested direct ChatGPT packaging block clearly.
+  Never recommend backend switching, repeated prompts or Settings toggles as a
+  fix for a confirmed missing host entitlement. Do not build another helper or
+  workaround without a new owner request.
 - Keep the runtime independent of request/connection history. Explicit bounded
   local indexes and a minimal write-outcome journal are permitted disk state;
   no scheduler or background worker. Document their lifecycle.

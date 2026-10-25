@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 25 October 2026. Version 0.3.3. The public release starts with one clean
+Updated: 25 October 2026. Version 0.3.4. The public release starts with one clean
 initial commit under AGPL-3.0-only. The previous repository/history remains a
 private archive; no old commit objects are pushed to the public repository.
 
@@ -10,7 +10,8 @@ private archive; no old commit objects are pushed to the public repository.
   message and RFC-source reads, combined subject/sender/body search.
 - Public EventKit Calendar reads, recurring occurrence identities and selected
   writable-calendar event creation. Exact nonrecurring event opening is available.
-- Public Contacts lookup and paged enumeration; restricted notes are excluded.
+- Public Contacts lookup and paged enumeration on compatible hosts; restricted
+  notes are excluded. The tested direct ChatGPT host is blocked as detailed below.
 - Mail preparation/sending with attachments, selected-calendar creation and
   separate UI-open enablement. Native human review is the default for send/create;
   deliberate owner configuration can delegate consent to the host/model.
@@ -27,7 +28,7 @@ private archive; no old commit objects are pushed to the public repository.
 
 The release is based on the tested implementation, not a fresh unverified rewrite:
 
-- **211 synthetic/protocol tests passed**, three live reads skipped by default.
+- **238 synthetic/protocol tests passed**, three live reads skipped by default.
   Ruff format/check, strict Pyright, wheel build/inspection, installer shell syntax
   and all three native script compilations passed. CI repeats the required checks.
 - Separate opt-in Mail/Calendar/Contacts native read checks passed. Normal CI never
@@ -94,16 +95,18 @@ without Apple's Command Line Tools or on every macOS release.
 - Direct Contacts access from the tested ChatGPT desktop 26.1021.31345 is blocked
   before any consent dialog: macOS identifies ChatGPT as responsible and reports
   its missing Address Book entitlement. Its Contacts usage description is also
-  absent. No Settings entry exists for that host. Direct framework access needs a
-  host fix or separately authorized native helper; this MCP does not ship one.
-  Optional `--contacts-backend contacts-app` is implemented and locally verified;
-  its affected-host reload/setup/read check is pending. See decision 0017.
-  Separately authorized launch contexts working do not establish direct-host support.
+  absent. Contacts.app Automation also failed actual reads after Automation was
+  granted: native logs show it checks access on behalf of that same responsible
+  ChatGPT app. No Settings toggle or backend switch supplies missing declarations.
+  Contacts stays supported for compatible hosts and future app updates after a
+  grant and read verification. No helper is being built. See decision 0018.
+  The separately launched managed Codex connection succeeded; that does not
+  establish direct-host support.
 - Calendar attendee/invitation creation is intentionally excluded. No provider
   API/OAuth, private attendee setter, screen automation or ICS substitute is added.
 - Host approval policy, executor flags and OS privacy grants remain independent.
   Existing Calendar/Contacts grants work in the verified host. Reload the desktop
-  MCP connection for the new 0.3.3 catalog/doctor behavior. New installations must
+  MCP connection for the new 0.3.4 catalog/doctor behavior. New installations must
   verify their own actual host process and permission dialogs.
 
 ## README usability and Mail MCP review
@@ -192,7 +195,8 @@ use Contacts.app Automation. Own read-only local probes returned 619 IDs in
 returned 617 contacts versus 619 non-unified records, so identity semantics must
 be explicit. The current ChatGPT build has Apple Events declarations, making
 this an established route to test before inventing a helper. These probes ran
-under an authorized launch context; the affected-host Automation test is pending.
+under an authorized launch context. The later affected-host Automation test
+failed despite consent, while the managed-launcher test passed; details below.
 Version 0.3.3 now implements an explicit Contacts.app backend, without automatic
 fallback. See the implementation evidence below.
 
@@ -228,17 +232,42 @@ negative in that visible record scope. List/get/name calls initially took
 seconds. These are individual end-to-end measurements, not percentile targets.
 No native records or OS privacy settings were changed.
 
-The existing local registration now explicitly selects `contacts-app`, preserving
-its other flags, other MCPs and host write-review setting. A reload is required
-for existing processes. **The affected direct ChatGPT connection remains
-unverified on this route.** Its reported permission error came from the old
-framework tool, not this implementation. Follow CODEX_HANDOFF.md for the reload,
-explicit setup if necessary and real read verification. No test email/event is
-needed. Future performance work may narrow metadata/detail reads; it must not
-add an unnecessary shadow index or weaken coverage/identity checks.
+The existing local registration explicitly selects `contacts-app`, preserving
+its other flags, other MCPs and host write-review setting. Subsequent direct
+ChatGPT tests granted Automation but failed list/search on this implementation;
+the native privacy logs confirmed the host entitlement block. A separately
+launched managed Codex connection successfully listed a record, read the same
+ID with equal fields, and returned a complete negative across 619 exposed records.
+The first list took about 12 seconds; concurrently issued get/negative calls took
+36.011/35.461 seconds. This is useful verification, not a universal performance
+claim or proof for the blocked direct host. No native records were changed.
 
 Verification: **211 tests passed, three opt-in live tests skipped**; Ruff and
 strict Pyright passed. Separate SDK live reads above are not default CI tests.
+
+## Contacts compatibility guidance (0.3.4)
+
+Contacts remains available by owner decision. Every Contacts tool description and
+the setup tool now explain required host declarations, the tested direct ChatGPT
+build's limitation, and support for compatible hosts or future compatible builds.
+Read errors preserve safe numeric native error codes and distinguish Automation
+from data access. Doctor performs a separate nonprompting Contacts status check
+for the Automation backend; an Automation grant with unestablished framework
+access reports unverified readiness and host diagnosis, not another setup loop.
+The framework status is diagnostic context, not a new gate or backend fallback.
+Existing worker reply schemas remain compatible with loaded 0.3.3 parents.
+
+Mail/Calendar behavior, the host review policy and startup flags are unchanged.
+Reload is needed to see the 0.3.4 tool descriptions and doctor behavior; it does
+not fix the direct ChatGPT app's missing entitlement. No additional live data
+reads, permission prompts or test writes are needed for this documentation and
+diagnostics update.
+
+Verification: 238 tests passed, three opt-in live tests skipped. Ruff format/check,
+strict Pyright, wheel build/inspection, installer shell syntax and all three JXA
+compilations passed. Real SDK STDIO discovery verifies the guidance for both
+Contacts backends and both protocol modes without reading native data. The live
+per-host Contacts evidence above predates this diagnostics-only update.
 
 ## Public release boundary
 

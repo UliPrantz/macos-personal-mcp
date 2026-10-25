@@ -7,13 +7,16 @@ import pytest
 from mcp import Client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 
+from macos_personal_mcp.models import ContactsBackend
 from macos_personal_mcp.process import run_child
 from macos_personal_mcp.service import READS, SETUP
 
 
 @pytest.mark.parametrize("mode", ["auto", "legacy"])
+@pytest.mark.parametrize("backend", ["framework", "contacts-app"])
 async def test_real_stdio_sdk_discovery_validation_and_closed_write_gate(
     mode: Literal["auto", "legacy"],
+    backend: ContactsBackend,
     tmp_path: Path,
 ) -> None:
     parameters = StdioServerParameters(
@@ -23,6 +26,8 @@ async def test_real_stdio_sdk_discovery_validation_and_closed_write_gate(
             "macos_personal_mcp.cli",
             "serve",
             "--read-only",
+            "--contacts-backend",
+            backend,
             "--config",
             str(tmp_path / "permissions.toml"),
         ],
@@ -33,6 +38,14 @@ async def test_real_stdio_sdk_discovery_validation_and_closed_write_gate(
     async with Client(stdio_client(parameters), mode=mode, read_timeout_seconds=10) as client:
         tools = await client.list_tools()
         assert {t.name for t in tools.tools} == {d.name for d in READS + SETUP}
+        for tool in tools.tools:
+            if tool.name.startswith("contacts_") or tool.name == "request_permissions":
+                assert tool.description is not None
+                assert "com.apple.security.personal-information.addressbook" in tool.description
+                assert "NSContactsUsageDescription" in tool.description
+                assert "ChatGPT Desktop 26.1021.31345" in tool.description
+                if backend == "contacts-app":
+                    assert "Automation" in tool.description
         # Blocked/invalid tools never contact the owner's native apps in default tests.
         invalid = await client.call_tool("mail_get_message", {"local_id": "1"})
         assert invalid.is_error

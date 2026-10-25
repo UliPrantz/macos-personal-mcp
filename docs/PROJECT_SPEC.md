@@ -197,6 +197,17 @@ lifecycle management are outside the initial advertised feature set.
 
 ### Contacts
 
+- Retain Contacts support for compatible MCP hosts. A hardened-runtime responsible
+  app needs `com.apple.security.personal-information.addressbook`, a valid
+  `NSContactsUsageDescription` and a macOS grant. The tested direct ChatGPT Desktop
+  26.1021.31345 lacks those declarations; document that host limit in tool
+  descriptions, errors and setup guidance without disabling other hosts or future
+  compatible builds. No signature changes, helper or provider workaround is added.
+- An Automation grant authorizes Apple Events delivery, not necessarily Contacts
+  data access. Contacts.app can enforce the original caller's Contacts privacy
+  access; the tested direct ChatGPT host is blocked on both routes. Doctor must
+  distinguish Automation authorization from data readiness, and generic denial
+  must not be reported as proof of a missing entitlement or user refusal.
 - `contacts_search`, `contacts_get`, `contacts_list`: support name/phone/email
   lookup and paginated enumeration; retrieve labeled phone numbers and email
   addresses plus available useful name, organization and address fields.

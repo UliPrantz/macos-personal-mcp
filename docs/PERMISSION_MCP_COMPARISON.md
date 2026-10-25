@@ -1,7 +1,7 @@
 # Local MCP permissions: existing approaches and measured probes
 
-Reviewed 25 October 2026. This investigation preceded the optional backend in
-[decision 0017](decisions/0017-selectable-contacts-app-automation.md).
+Reviewed 25 October 2026, including the subsequent direct-host test of the optional
+backend in [decision 0017](decisions/0017-selectable-contacts-app-automation.md).
 Third-party source was inspected at the revisions below; its servers/installers
 were not run. No contacts, events, messages, signatures or privacy settings were
 changed. Native consent is distinct from approval of a tool's payload.
@@ -16,7 +16,7 @@ is not a blanket permission for everything a local MCP can do.
 | Mail's protected files | File privacy / Full Disk Access for the effective reader | Working file reads do not authorize CNContactStore |
 | Calendar via EventKit | Calendar resource declarations and Calendar authorization | Host has Calendar entitlement and purpose strings; full access requested/granted |
 | Contacts via CNContactStore | Address Book resource declarations and Contacts authorization | Missing host entitlement and purpose string; macOS explicitly refuses before a dialog |
-| Contacts.app via Apple Events | Apple Events declarations and Automation consent to control Contacts.app | Host has Apple Events entitlement/purpose string; this target's grant still needs testing in the affected connection |
+| Contacts.app via Apple Events | Automation consent plus Contacts data authorization checked on behalf of the original caller | Automation granted, but actual list/search refused; native logs again identify ChatGPT's missing Address Book entitlement |
 
 This table records inspected ChatGPT **26.1021.31345**, not all ChatGPT versions.
 Native privacy logs established the responsible app for the failing request;
@@ -43,7 +43,10 @@ it is not the user's grant. The MCP's native/host review setting supplies neithe
 No reviewed source establishes that a subprocess can simply request its way past
 a hardened responsible host's missing Contacts entitlement. Several instead use
 Contacts.app's scripting interface. That is programmatic native automation, not
-screen scraping or a provider API connection.
+screen scraping or a provider API connection. The subsequent direct-host test
+showed that it does not bypass the original caller's Contacts data authorization.
+Those implementations remain useful references, not evidence that a different
+permission boundary applies under this host.
 
 ## Read-only experiments on this Mac
 
@@ -72,10 +75,10 @@ cannot promise fast full-detail pages just from fast bulk IDs.
 CNContactStore in the same launch returned **617 unified contacts** and **619
 non-unified contacts**. Contacts.app's matching non-unified count is useful
 evidence of different record semantics, not proof of exact cross-route identity
-mapping. A future backend must namespace its IDs and describe record coverage;
-it cannot treat those IDs as interchangeable with existing unified-contact IDs.
+mapping. The implemented backend namespaces its IDs and describes record coverage;
+those IDs are not interchangeable with existing unified-contact IDs.
 
-## Implementation and remaining host check
+## Implementation and actual host results
 
 Version 0.3.3 implements an explicit `--contacts-backend contacts-app` selection,
 keeping one Contacts tool surface. It uses public Foundation Apple Events to
@@ -89,20 +92,26 @@ Direct public core/getd column probes returned 619 IDs in 0.129 s and nested ema
 lists in 0.081 s. Those are individual field timings, not full MCP timings.
 Full local SDK checks subsequently verified list/pagination/get/name/email/phone
 and negative searches. Full reads initially took 13–15 seconds; later queries
-were 2–5 seconds. See STATUS.md for actual bounds and the remaining direct-host
-verification. No competitor's published performance was treated as a local result.
+were 2–5 seconds. Later concurrent actual desktop reads through the managed
+launcher took about 35–36 seconds, so the faster examples are not a general latency
+promise. See STATUS.md for actual scopes and bounds. No competitor's published
+performance was treated as a local result.
 
-The other ChatGPT agent reported another direct-API permission error, not the
-requested Contacts.app probe; it did not validate this route. After reloading the
-configured server, confirm `doctor.server_version` and
-`permissions.contacts_backend`, call explicit `request_permissions` for contacts
-if its guidance requires it, approve the actual Automation dialog, then perform
-list/get/name/email/phone checks from that same connection. No Terminal test or
-separately authorized launcher substitutes for this check.
+The direct ChatGPT connection subsequently granted Automation, then failed both
+Contacts list and search. Native privacy logs identified Contacts.app as the
+requesting process, the MCP worker as the accessing process and ChatGPT as the
+responsible original caller. Address Book access was refused because ChatGPT
+lacked the entitlement, with prompting disallowed. Automation consent permits
+event delivery; it does not establish the target's permission to disclose data.
 
-A helper is unnecessary if this established Automation route works under the
-actual host. If it fails, preserve the native error and investigate host Apple
-Events declarations/responsibility first. Private AddressBook SQLite adds schema,
-linkage, limited-access and synchronization work; FDA is not sufficient reason
-to introduce it as an automatic fallback. No helper or private-store adapter was
-added.
+The managed launcher in this desktop conversation did pass real list/get/negative
+search calls. These outcomes are consistent: macOS authorization is specific to
+the responsible launch context. Process ancestry by itself does not prove the
+TCC identity for a successful request.
+
+The owner chose to retain Contacts for compatible hosts and possible future
+ChatGPT builds with the required declarations. No helper, private-store adapter,
+re-signing or new workaround is planned. On a hardened-runtime host, proper
+Contacts declarations and a user grant remain necessary; Settings cannot add a
+missing signed entitlement. A future host update should be checked with doctor,
+explicit setup if needed, and an actual bounded read before claiming support.

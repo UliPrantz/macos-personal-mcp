@@ -5,37 +5,44 @@ Detailed search, approval and development instructions are in TECHNICAL_DETAILS.
 The public repository starts with one clean initial commit. Pre-release history
 and raw native-data evidence are not part of the public repository.
 
-## Next step: verify the reloaded ChatGPT connection
+## Current decision: retain Contacts with an explicit host requirement
 
-The implementation and local SDK tests are complete; do not repeat the permission
-research or build another helper first. Read STATUS.md and decision 0017.
+Contacts stays supported for compatible hosts. The owner does not want another
+helper or workaround for the tested ChatGPT build. Read STATUS.md, PERMISSIONS.md
+and decisions 0017/0018 before changing that boundary.
 
-1. Have the owner restart the existing `macos-personal` connection. The local
-   registration already selects `--contacts-backend contacts-app`; preserve other
-   MCPs, launch flags and host approval settings. No new clone is needed.
-2. Call the actual desktop `doctor`. Expect `server_version="0.3.3"` and
-   `permissions.contacts_backend="contacts-app"`. An older result means the
-   loaded process/catalog has not refreshed. Never substitute a Terminal test.
-3. If Contacts is `not_determined` or `not_running`, call `request_permissions`
-   with `{"domain":"contacts"}` after the owner requests setup. It may open
-   Contacts.app in the background and show a macOS **Automation** consent dialog.
-   Let the owner approve it. Then rerun doctor. A request callback alone is not
-   proof of a grant. For denial, use the returned Automation guidance, not the
-   Contacts privacy pane. Preserve the safe error and inspect the actual host.
-4. Verify `contacts_list` with a small page, `contacts_get` using an exact returned
-   `contacts-app:` ID, name/email/phone lookups and a negative control. Do not log
-   personal field values or claim cross-source unified identities.
-5. Update STATUS with actual desktop evidence and commit/push as the documented
-   AI identity. No email, event, contact mutation, permission reset or signature
-   change is authorized by these verification steps.
+The direct ChatGPT desktop build 26.1021.31345 lacks the hardened-runtime Address
+Book entitlement and Contacts purpose string. The optional Contacts.app route
+also failed there after Automation consent: native logs confirm Contacts.app
+checked data access on behalf of the original ChatGPT caller. No Settings toggle,
+backend switch or repeated request can add that missing signed entitlement.
+OpenAI would need to ship updated declarations. Other properly authorized hosts
+can use the tools now; a future compatible ChatGPT build can use the existing
+integration after its own grant and read verification.
 
-Local SDK checks already passed for 619 records, disjoint pages, exact equality,
-name/email/phone lookups, a negative control and existing-grant setup. The affected
-ChatGPT host still needs that test. Full-detail calls initially took 13–15 seconds
-and later searches 2–5 seconds; avoid promising subsecond full results from fast
-single-column timings. If optimizing later, investigate narrowing metadata/detail
-reads while retaining nonprompting events, namespace/shape checks and deadlines.
-There is no persistent Contacts index to maintain.
+Actual list/get/negative-search calls passed through the managed launcher in a
+separate desktop connection. Earlier SDK checks also covered pagination and
+name/email/phone search. Neither substitutes for the failed direct-host result.
+Full-detail timings vary: initial SDK calls took 13–15 seconds, later queries
+2–5 seconds, and concurrent managed-desktop reads about 35–36 seconds. Do not
+promise subsecond results from single-column probes. No persistent Contacts
+index exists.
+
+For future maintenance:
+
+1. Keep the host requirement visible in Contacts tool descriptions, setup results,
+   doctor guidance and installation docs. Automation authorization and Contacts
+   data-read readiness are distinct; a generic denied status alone does not prove
+   which entitlement is missing.
+2. After updating, reload the existing MCP connection to refresh definitions and
+   compare `doctor.server_version` with the installed package. Preserve backend,
+   executor and host review settings; no new clone or duplicate server is needed.
+3. Do not ask the owner to repeat the already diagnosed blocked setup. Retest that
+   host only after a relevant app update or explicit new request. Use bounded
+   read-only checks and keep personal values out of reports.
+4. Run synthetic/protocol checks for diagnostic changes, update STATUS and
+   commit/push as the documented AI identity. No test email, event, contact
+   mutation, privacy reset or signature change is part of this maintenance.
 
 ## Current implementation
 
@@ -60,17 +67,14 @@ There is no persistent Contacts index to maintain.
   `request_permissions` can request one Calendar/Contacts grant; ordinary reads
   and doctor never prompt. Not-determined differs from denied/restricted. Read
   PERMISSIONS.md and decision 0016 before changing that boundary.
-- Direct ChatGPT 26.1021.31345 lacks the Contacts hardened-runtime entitlement and
-  purpose string; native logs confirm pre-dialog refusal. No Settings toggle can
-  fix that host packaging. A separate helper is not implemented. Read the tested
-  blocker in PERMISSIONS.md before giving repeated permission instructions.
-  PERMISSION_MCP_COMPARISON.md records peer implementations and successful local
-  Contacts.app Automation probes. Version 0.3.3 implements an explicitly selected
-  `--contacts-backend contacts-app` route; decision 0017 records the design. Local
-  SDK list/page/get/name/email/phone/negative tests passed, but the affected-host
-  reload/setup/read test remains pending. Preserve explicit consent and distinguish
-  scripted record IDs from unified CNContactStore IDs. No shadow Contacts index.
-  Doctor's loaded server_version helps identify a stale parent/new-worker mix.
+- Contacts uses the framework by default or the explicitly selected
+  `--contacts-backend contacts-app` route from decision 0017. Both require a
+  compatible responsible host. Automation consent alone does not certify data
+  access; the tested direct ChatGPT build remains blocked. Preserve explicit
+  consent and distinguish scripted record IDs from unified CNContactStore IDs.
+  PERMISSION_MCP_COMPARISON.md records peer implementations and the differing
+  actual host results. Doctor's loaded server_version identifies a stale parent/
+  new-worker mix; it is not proof of permission or a successful data read.
 - Mail's observed single appended ASCII space passes review. Other body changes
   remain blocked. Draft rejection has a persistent safe failure code and never
   permits an automatic retry; preserve old uncertain operations and existing drafts.
@@ -90,9 +94,11 @@ Live reads are separately opt-in. General maintenance is not permission for test
 emails/events, changing OS privacy settings, or deleting native data. Preserve
 other MCPs, local changes, host approval settings and unresolved outcome journals.
 
-Actual desktop search/message/source reads, Calendar/Contacts reads and the
-native approval policy have been demonstrated in declared scopes. SDK success
-alone does not prove a new desktop installation; follow INSTALL_WITH_AGENT.md.
+Actual desktop search/message/source reads, Calendar reads and the native approval
+policy have been demonstrated in declared scopes. Contacts reads were demonstrated
+through the authorized managed launcher, while the tested direct ChatGPT host
+failed. SDK success alone does not prove a new desktop installation; follow
+INSTALL_WITH_AGENT.md.
 Native archive coverage is nonexhaustive, the indexed OS format is gated, semantic
 search is absent, and some archive searches exceed the two-second target.
 

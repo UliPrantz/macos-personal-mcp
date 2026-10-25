@@ -6,7 +6,10 @@ This guide covers search semantics, configuration, limits and development.
 ## Current capability
 
 The combined `mail_search` and search-to-message-read workflow are verified
-through the actual desktop tools, alongside Calendar and Contacts. Native search
+through the actual desktop tools, alongside Calendar. Contacts reads passed under
+an authorized managed launcher but failed under the tested direct ChatGPT host;
+see [host compatibility](PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
+Native search
 reports coverage and missing/partial bodies explicitly. Recent scopes are fast;
 archive searches can exceed two seconds and do not certify exhaustive coverage.
 See [measured status](STATUS.md) for exact checks, OS limits and gaps.
@@ -32,7 +35,9 @@ resolution or network download is needed when the MCP normally starts.
   permissions and configured sources; all-account reconciliation is not established.
 - Contacts: public unified identities by default, name/organization/phone/email search,
   labeled phones/emails, postal addresses and deterministic pagination. Limited
-  access is reported; restricted notes are deliberately unavailable.
+  access is reported; restricted notes are deliberately unavailable. A compatible
+  calling host and macOS authorization are required. The tested direct ChatGPT
+  build lacks the required Contacts entitlement and purpose string.
 - Mail preparation: exact configured sender, literal To/CC/BCC, content and local
   regular-file attachment hashes. A preview is never permission to send.
 
@@ -44,7 +49,9 @@ use public PyObjC APIs in bounded disposable Python workers. Optional
 with explicit Automation setup and read-time no-prompt flags. It exposes
 non-unified records with `contacts-app:` IDs, batching fixed fields in memory
 without a persistent copy. It never acts as an automatic permission fallback.
-See [decision 0017](decisions/0017-selectable-contacts-app-automation.md). No executable script
+Automation consent only permits event delivery; Contacts.app can still check data
+access on behalf of the original caller. That route does not fix the tested
+ChatGPT host's missing Contacts entitlement. See [decision 0017](decisions/0017-selectable-contacts-app-automation.md). No executable script
 is constructed from tool inputs. See [the worker decision](decisions/0003-public-native-read-workers.md)
 and STATUS for real scopes, timings and permission evidence.
 

@@ -1,6 +1,6 @@
 # 🍎 macOS Personal MCP
 
-**Your Mail, Calendar and Contacts, connected to ChatGPT.**
+**Your Mail and Calendar, connected to ChatGPT. Contacts too, with a compatible host.**
 
 You know the answer is somewhere on your Mac. A date buried in an email, a
 meeting in your calendar, a contact whose address you can never remember.
@@ -72,11 +72,12 @@ cloud browser cannot install software on your Mac.
 **Compatibility:** requires an Apple Silicon Mac. Full archive body search is
 currently validated only on **macOS 26.5.2**; other versions have no validated
 large-scope body-search support. [Compatibility and troubleshooting](INSTALL.md#troubleshooting-and-removal).
-Contacts also depends on your AI app: the tested ChatGPT desktop build blocks
-the default direct Contacts API before showing a permission dialog. The optional
-`--contacts-backend contacts-app` route uses native Automation consent instead
-(no screen control); verify it from your actual ChatGPT connection.
-[Host compatibility and next steps](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
+**Contacts requires a compatible calling app.** A hardened-runtime host needs
+Apple's Contacts entitlement, a usage description and your macOS permission.
+The tested direct ChatGPT desktop build **26.1021.31345** lacks those Contacts
+declarations; neither a Settings toggle nor the optional Automation backend fixes
+that. Contacts support stays available for compatible hosts and future app updates.
+[Compatibility details](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
 
 <details>
 <summary><strong>🛠️ Prefer to install it yourself? Three steps</strong></summary>
@@ -110,9 +111,11 @@ at this location. If it already exists, [inspect it before updating](INSTALL.md#
 Save and **Restart** that connection.
 
 **3. Allow access and try it.** Ask ChatGPT to run `doctor` and follow its
-`next_actions`. If Calendar or Contacts says `not_determined`, ask it to call
+`next_actions`. For an eligible host with `not_determined` access, ask it to call
 `request_permissions` for that feature, then approve the macOS dialog. There may
-be no Settings entry until that first request. [Permission help](docs/PERMISSIONS.md).
+be no Settings entry until that first request. For the known ChatGPT Contacts
+block above, continue with Mail and Calendar; repeated requests will not fix it.
+[Permission help](docs/PERMISSIONS.md).
 If Mail-file search is denied, check **System
 Settings → Privacy & Security → Full Disk Access** for the app or helper running
 the MCP, then restart it if macOS requests that. Ask ChatGPT:
@@ -147,9 +150,10 @@ Calendar invitations and adding attendees are not supported.
 
 ## 🎯 What to expect today
 
-Search, message reads, Calendar and Contacts have been tested through the actual
-desktop connection. Recent-mail searches are usually quick in our measured
-scopes; larger archive searches can take several seconds. Keywords, exact
+Search, message reads and Calendar have been tested through actual desktop tools.
+Contacts reads also work through an authorized launcher, but remain blocked in
+the tested direct ChatGPT host described above. Recent-mail searches are usually
+quick in our measured scopes; larger archive searches can take several seconds. Keywords, exact
 phrases, date ranges and limited typo matching work. Semantic search is not
 implemented.
 

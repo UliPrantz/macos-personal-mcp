@@ -1,6 +1,6 @@
 [project]
 name = "macos-personal-mcp"
-version = "0.3.3"
+version = "0.3.4"
 description = "Local Python MCP for macOS Mail, Calendar and Contacts"
 readme = "README.md"
 license = "AGPL-3.0-only"

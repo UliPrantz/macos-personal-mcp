@@ -353,7 +353,9 @@ class NativeAccessResult(Model):
     after: str
     request_attempted: bool
     request_completed: bool
-    granted: bool
+    granted: bool = Field(
+        description="Observed authorization for the selected route only. For contacts-app this is Automation consent, not proof of Contacts data-read access. Verify doctor and an actual read."
+    )
     error_code: int | None = None
 
     @model_validator(mode="after")

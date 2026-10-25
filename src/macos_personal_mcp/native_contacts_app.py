@@ -10,6 +10,7 @@ from Foundation import NSAppleEventDescriptor as Descriptor
 from Foundation import NSError
 from pydantic import JsonValue
 
+from macos_personal_mcp.access import CONTACTS_HOST_REQUIREMENT
 from macos_personal_mcp.models import Model, NativeAccessResult, PermissionRequest
 from macos_personal_mcp.native_access import Completion, request_access
 from macos_personal_mcp.process import NativeError, run_child
@@ -180,13 +181,22 @@ class ReadEvent(Protocol):
 def read_reply(event: ReadEvent) -> list[JsonValue]:
     reply, error = event.sendEventWithOptions_timeout_error_(READ_OPTIONS, 5.0, None)
     if error is not None or reply is None:
+        native_code = str(error.code()) if error is not None else "unavailable"
         raise NativeError(
             "contacts_automation",
-            "Contacts.app read failed; run doctor and explicit permission setup if needed",
+            "Contacts.app read failed (transport error " + native_code + "); no complete result. "
+            "Inspect doctor and the selected host; an Automation grant alone does not establish data-read access. "
+            + CONTACTS_HOST_REQUIREMENT,
         )
     failure = reply.paramDescriptorForKeyword_(code("errn"))
     if failure is not None and failure.int32Value() != 0:
-        raise NativeError("contacts_automation", "Contacts.app rejected a read; no complete result")
+        raise NativeError(
+            "contacts_automation",
+            "Contacts.app rejected a read (Apple event reply error "
+            + str(failure.int32Value())
+            + "); no complete result. Automation consent permits event delivery; the target app can still refuse the requested data read. "
+            + CONTACTS_HOST_REQUIREMENT,
+        )
     result = reply.paramDescriptorForKeyword_(code("----"))
     if result is None:
         raise NativeError("automation_response", "Contacts.app omitted the requested field")
@@ -205,6 +215,7 @@ def read_contacts(operation: str, payload: str) -> Model:
             "contacts_permission",
             "Contacts.app Automation is "
             + status
-            + ". Run doctor, then explicit request_permissions for contacts; ordinary reads do not prompt.",
+            + ". Run doctor and follow next_actions; ordinary reads do not prompt. "
+            + CONTACTS_HOST_REQUIREMENT,
         )
     return assemble(operation, payload, AppleEventsReader())
