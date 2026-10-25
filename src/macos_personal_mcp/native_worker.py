@@ -19,6 +19,7 @@ from macos_personal_mcp.models import (
     Contact,
     ContactKey,
     Contacts,
+    ContactsBackend,
     ContactsScope,
     Event,
     EventOpenTarget,
@@ -325,17 +326,45 @@ def read_calendar(operation: str, payload: str) -> Model:
 def main() -> None:
     try:
         operation = sys.argv[1]
+        backend: ContactsBackend = "framework"
+        if len(sys.argv) > 2:
+            if sys.argv[2] not in {"framework", "contacts-app"}:
+                raise NativeError("contacts_backend", "Unknown startup Contacts backend")
+            backend = "contacts-app" if sys.argv[2] == "contacts-app" else "framework"
         payload = sys.stdin.buffer.read(2_000_001).decode()
         if len(payload) > 2_000_000:
             raise NativeError("input_limit", "Native worker input exceeds its bound")
         if operation == "permissions":
             result: Model = native_permissions()
+            if backend == "contacts-app":
+                from macos_personal_mcp.native_contacts_app import automation_status
+
+                try:
+                    contacts_authorization = automation_status()
+                except NativeError, OSError:
+                    contacts_authorization = "unknown"
+                result = result.model_copy(
+                    update={"contacts": contacts_authorization, "contacts_backend": backend}
+                )
         elif operation == "request_permissions":
-            result = request_access(PermissionRequest.model_validate_json(payload))
+            request = PermissionRequest.model_validate_json(payload)
+            if request.domain == "contacts" and backend == "contacts-app":
+                from macos_personal_mcp.native_contacts_app import request_automation_access
+
+                result = request_automation_access()
+            else:
+                result = request_access(request)
         elif operation.startswith("calendar_"):
             result = read_calendar(operation, payload)
         elif operation.startswith("contacts_"):
-            result = read_contacts(operation, payload)
+            if backend == "contacts-app":
+                from macos_personal_mcp.native_contacts_app import (
+                    read_contacts as read_scripted_contacts,
+                )
+
+                result = read_scripted_contacts(operation, payload)
+            else:
+                result = read_contacts(operation, payload)
         else:
             raise NativeError("unknown_operation", "Unknown native worker operation")
         reply = NativeReply(result_json=result.model_dump_json())

@@ -159,7 +159,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/57/51/f1b86d93029f41803
 
 [[package]]
 name = "macos-personal-mcp"
-version = "0.3.2"
+version = "0.3.3"
 source = { editable = "." }
 dependencies = [
     { name = "lz4" },

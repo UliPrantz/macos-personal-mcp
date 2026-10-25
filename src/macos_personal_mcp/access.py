@@ -5,6 +5,7 @@ import sys
 
 from macos_personal_mcp.models import (
     AccessAction,
+    ContactsBackend,
     HostContext,
     PermissionDomain,
     PermissionRequest,
@@ -16,7 +17,11 @@ def access_granted(domain: PermissionDomain, status: str) -> bool:
     return status == "full_access" if domain == "calendar" else status in {"authorized", "limited"}
 
 
-def access_action(domain: PermissionDomain, status: str) -> AccessAction:
+def access_action(
+    domain: PermissionDomain, status: str, contacts_backend: ContactsBackend = "framework"
+) -> AccessAction:
+    if domain == "contacts" and contacts_backend == "contacts-app":
+        return automation_action(status)
     name = "Calendars" if domain == "calendar" else "Contacts"
     settings = "System Settings → Privacy & Security → " + name
     if access_granted(domain, status):
@@ -45,6 +50,7 @@ def access_action(domain: PermissionDomain, status: str) -> AccessAction:
                 if status == "not_determined"
                 else "Write-only Calendar access cannot read or validate the selected calendar. Request full access.",
                 "Approve the native macOS dialog for the app/helper it names; run doctor and an actual read afterward.",
+                "If this server's request_permissions tool is missing, restart the existing MCP connection or open a fresh local chat; updating files does not refresh a running tool catalog.",
             ],
         )
     if status == "denied":
@@ -54,11 +60,15 @@ def access_action(domain: PermissionDomain, status: str) -> AccessAction:
             action="open_settings",
             settings_path=settings,
             instructions=[
+                "macOS denial does not prove the user declined a dialog. A host entitlement/usage-description failure can also deny access before any prompt.",
                 "Open "
                 + settings
-                + ". Enable access for the responsible app/helper named by macOS.",
+                + " only if the responsible app/helper has an entry there; then enable the requested access.",
                 "The entry may be ChatGPT, Codex or a Python/helper process; do not assume it is named macos-personal.",
-                "Choose full access for Calendar. Contacts remains read-only in this MCP.",
+                "If no dialog or entry exists, diagnose the host's native privacy declarations first; repeated requests or MCP approval-mode changes cannot supply a missing host entitlement.",
+                "For direct Contacts API access, a hardened host needs com.apple.security.personal-information.addressbook and NSContactsUsageDescription. If missing, that route needs a host fix or properly authorized helper. See docs/PERMISSION_MCP_COMPARISON.md for researched alternatives; no fallback is enabled."
+                if domain == "contacts"
+                else "Choose full access for Calendar; write-only cannot read or validate the selected calendar.",
                 "Restart the connection (and the named app/helper only if macOS asks), then run doctor and an actual read.",
             ],
         )
@@ -80,6 +90,44 @@ def access_action(domain: PermissionDomain, status: str) -> AccessAction:
         instructions=[
             "Authorization could not be established. Run doctor from the same desktop connection and inspect its host context.",
             "Do not infer denied access or tell the user to enable a nonexistent Settings entry.",
+        ],
+    )
+
+
+def automation_action(status: str) -> AccessAction:
+    settings = "System Settings → Privacy & Security → Automation"
+    if status == "authorized":
+        return AccessAction(
+            capability="contacts",
+            status=status,
+            action="ready",
+            instructions=[
+                "Contacts uses Contacts.app through public Apple Events, not CNContactStore or screen automation. Verify a real read from this connection.",
+                "Automation consent does not establish a direct Contacts API grant. Records are not unified across sources.",
+            ],
+        )
+    if status in {"not_determined", "not_running"}:
+        return AccessAction(
+            capability="contacts",
+            status=status,
+            action="request_permission",
+            tool="request_permissions",
+            arguments=PermissionRequest(domain="contacts"),
+            instructions=[
+                "Call request_permissions for contacts from this same connection. Explicit setup may open Contacts.app in the background and request permission for this host to control Contacts.app.",
+                "Approve the macOS Automation dialog if you want that access. Ordinary reads and doctor never prompt or launch Contacts.app.",
+                "This route uses Automation settings, not the Contacts privacy pane; no direct Contacts API grant is implied.",
+            ],
+        )
+    return AccessAction(
+        capability="contacts",
+        status=status,
+        action="open_settings" if status == "denied" else "diagnose_host",
+        settings_path=settings if status == "denied" else None,
+        instructions=[
+            "Contacts.app Automation is not authorized. If this host has an existing Automation entry, enable Contacts.app under it; do not look for this route in Contacts privacy settings.",
+            "If no dialog or entry appeared, inspect the responsible host's com.apple.security.automation.apple-events entitlement and NSAppleEventsUsageDescription. Denial alone does not prove the user refused.",
+            "No direct Contacts API or private database fallback will run. Recheck doctor and a real read from this same connection.",
         ],
     )
 

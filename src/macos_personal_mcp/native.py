@@ -6,7 +6,7 @@ from typing import Protocol
 
 from pydantic import ValidationError
 
-from macos_personal_mcp.models import Failure, Model, NativeReply
+from macos_personal_mcp.models import ContactsBackend, Failure, Model, NativeReply
 from macos_personal_mcp.process import NativeError, run_child
 
 
@@ -15,6 +15,9 @@ class Bridge(Protocol):
 
 
 class NativeBridge:
+    def __init__(self, contacts_backend: ContactsBackend = "framework") -> None:
+        self.contacts_backend = contacts_backend
+
     async def call[T: Model](self, operation: str, request: Model, output: type[T]) -> T:
         if sys.platform != "darwin":
             raise NativeError("platform", "Native operations require macOS")
@@ -27,9 +30,14 @@ class NativeBridge:
                     "-m",
                     "macos_personal_mcp.native_worker",
                     operation,
+                    self.contacts_backend,
                 ],
                 request.model_dump_json().encode(),
-                timeout=105 if operation == "request_permissions" else 15,
+                timeout=105
+                if operation == "request_permissions"
+                else 45
+                if operation.startswith("contacts_") and self.contacts_backend == "contacts-app"
+                else 15,
             )
             reply = NativeReply.model_validate_json(raw)
             if reply.failure is not None:

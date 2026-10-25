@@ -86,8 +86,10 @@ using its exact returned identity. Report any incomplete search coverage.
 For Calendar or Contacts marked `not_determined`, ask ChatGPT to call
 `request_permissions` with `domain="calendar"` or `domain="contacts"`, one feature
 at a time. Approve the native OS dialog, then repeat `doctor` and an actual read.
-There may be no Settings entry before that first request. If access is `denied`,
-follow the reported Settings path for the app/helper named by macOS instead.
+There may be no Settings entry before that first request. A `denied` result can
+also mean the host lacks required native declarations. Follow returned guidance;
+use Settings only if the relevant app/helper has an entry. See the
+[tested ChatGPT Contacts blocker](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
 Mail Automation can prompt during Mail account discovery. For Mail-file search,
 check **System Settings → Privacy & Security → Full Disk Access** if access is
 denied. Enable the app/process actually running the tools; the host may be
@@ -137,15 +139,47 @@ and rerun `sh scripts/install.sh`, then restart only this MCP connection.
 For a development checkout use `sh scripts/install.sh --dev` to retain dev tools.
 Existing MCP registration, write flags and approval policy remain unchanged.
 
+## Contacts when your AI app cannot request direct access
+
+If the host cannot request Contacts access, you can deliberately select the
+native Contacts.app route by adding these **two arguments** to its existing
+server arguments:
+
+```text
+--contacts-backend contacts-app
+```
+
+For example, a read-only installation uses:
+
+```text
+serve --read-only --contacts-backend contacts-app
+```
+
+Restart the existing connection. Ask the assistant to run `doctor`, confirm
+`permissions.contacts_backend` is `contacts-app`, then call `request_permissions`
+with `domain="contacts"` if requested. Setup can open Contacts.app in the background
+and macOS may ask whether the host may **control Contacts**. This is native
+Apple Events, with no screenshots, clicks, provider login or contact writes.
+Its Settings entry is under **Privacy & Security → Automation**, not Contacts.
+
+Verify a contact list and name/email/phone search from that same connection.
+This route returns records rather than unified contacts, so duplicates across
+accounts may appear. Search again for fresh IDs after switching routes.
+Keep Contacts.app running for reads; ordinary reads and doctor never open it or
+request access. Remove the two arguments to return to the default direct API.
+No automatic fallback is used. See [permission details](docs/PERMISSIONS.md).
+
 ## Troubleshooting and removal
 
 | Symptom | Next step |
 | --- | --- |
 | No tools | Check the absolute command exists, save/restart the connection, and confirm local STDIO support |
 | Old schema or legacy tool | Restart the existing connection and rediscover tools |
+| `request_permissions` missing after updating | Restart the existing MCP connection; use a fresh local chat if its catalog remains cached. `doctor.server_version` should show the installed revision |
 | Calendar/Contacts `not_determined`, no Settings entry | Call `request_permissions` for that domain in the same desktop connection; approve its native dialog |
 | Calendar/Contacts `denied` or `restricted` | Follow `doctor.next_actions`; use the named Settings pane or contact the device administrator |
 | Permission request fails or stays `not_determined` | Check for a pending dialog, then inspect `doctor.host` and the request error; host privacy metadata may need attention |
+| Contacts error 100 without a dialog or Settings entry | Check the host's Contacts entitlement and usage description; see the [direct-host blocker and researched alternatives](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt) |
 | Mail folders denied | Check the actual launching app/helper's Full Disk Access, then restart if macOS requires it |
 | `native_profile` | This OS's large native index format is unvalidated; use a narrow date/account scope (at most 500 unresolved bodies) |
 | `stale_cursor` / changing source | Start a fresh search at offset zero; do not reuse its old snapshot |

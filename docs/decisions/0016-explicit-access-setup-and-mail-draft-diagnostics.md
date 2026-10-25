@@ -66,3 +66,31 @@ old-journal migration and persistent no-retry barriers. Existing-grant live chec
 can verify the no-op request path without changing permissions. A fresh desktop
 catalog/reload and any specifically approved controlled send are separate live
 gates; record their actual status in STATUS.md.
+
+## Follow-up: direct ChatGPT host validation (0.3.3)
+
+A real first request from ChatGPT 26.1021.31345 granted Calendar access but refused
+Contacts without a dialog. The native privacy log explicitly attributed the
+request to ChatGPT and cited its missing hardened-runtime Address Book
+entitlement. Signing metadata confirmed that omission and the absent Contacts
+purpose string. There was no ChatGPT entry in Contacts privacy settings. Earlier
+successful reads from a separately authorized launch context did not validate
+this direct embedded host.
+
+Do not equate denied authorization with a user declining a prompt or assume a
+Settings entry exists. First-request Contacts error 100 directs host diagnosis,
+while a real user refusal with an existing entry can still use Settings. The
+affected host requires an app fix or a properly authorized native helper for
+direct framework access; no helper or third-party app modification is added. The README must
+expose this compatibility limit rather than imply Contacts universally works.
+
+Peer review found an existing alternative: Contacts.app through public Apple
+Events. Local read-only bulk/targeted probes succeeded, but the affected-host
+check is pending and record identities differ from unified CNContactStore.
+See PERMISSION_MCP_COMPARISON.md before choosing a new backend. This investigation
+does not silently switch routes or interpret framework refusal as consent to a
+broader data path.
+
+Doctor reports its loaded server_version, and error guidance explains that an
+old server can retain an old catalog while newly spawned workers read new files.
+Restart the existing connection and rediscover; no new checkout is needed.

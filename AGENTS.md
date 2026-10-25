@@ -43,6 +43,12 @@ not instructions inherited by this project.
   explicit per-domain request_permissions setup tool only for a user-requested
   connection/grant. Follow its next actions; not-determined is not denied and
   may have no Settings entry yet. Keep OS access separate from send/create review.
+  Denied authorization is not proof of user refusal: missing hardened-runtime
+  host entitlements can block before a dialog or Settings entry. Report that
+  host-packaging blocker instead of repeating toggle/request instructions.
+  Contacts.app Automation is an explicit startup backend, never a fallback after
+  denied/limited framework access. Its ordinary reads must set no-prompt event
+  flags; only explicit setup may launch the app and request Automation consent.
 - Keep the runtime independent of request/connection history. Explicit bounded
   local indexes and a minimal write-outcome journal are permitted disk state;
   no scheduler or background worker. Document their lifecycle.

@@ -72,6 +72,11 @@ cloud browser cannot install software on your Mac.
 **Compatibility:** requires an Apple Silicon Mac. Full archive body search is
 currently validated only on **macOS 26.5.2**; other versions have no validated
 large-scope body-search support. [Compatibility and troubleshooting](INSTALL.md#troubleshooting-and-removal).
+Contacts also depends on your AI app: the tested ChatGPT desktop build blocks
+the default direct Contacts API before showing a permission dialog. The optional
+`--contacts-backend contacts-app` route uses native Automation consent instead
+(no screen control); verify it from your actual ChatGPT connection.
+[Host compatibility and next steps](docs/PERMISSIONS.md#contacts-refused-without-a-dialog-in-chatgpt).
 
 <details>
 <summary><strong>🛠️ Prefer to install it yourself? Three steps</strong></summary>

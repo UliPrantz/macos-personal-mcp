@@ -9,6 +9,7 @@ from pathlib import Path
 from mcp_types import Tool, ToolAnnotations
 from pydantic import ValidationError
 
+from macos_personal_mcp import __version__
 from macos_personal_mcp.access import access_action, access_granted, host_context
 from macos_personal_mcp.body_index import BodyIndex
 from macos_personal_mcp.calendar_open import CalendarOpener
@@ -27,6 +28,7 @@ from macos_personal_mcp.models import (
     Contact,
     ContactKey,
     Contacts,
+    ContactsBackend,
     ContactsScope,
     Doctor,
     Empty,
@@ -152,7 +154,7 @@ READS = (
     ),
     Definition(
         "contacts_list",
-        "Paginate public unified Contacts, including labeled phones/emails and postal addresses; report limited access.",
+        "Paginate native Contacts, including labeled phones/emails and postal addresses; inspect backend coverage and access limits.",
         ContactsScope,
         Contacts,
     ),
@@ -235,11 +237,13 @@ class Service:
         calendar_executor: CalendarExecutor | None = None,
         calendar_opener: CalendarOpener | None = None,
         approval_config: LoadedConfig | None = None,
+        contacts_backend: ContactsBackend = "framework",
     ) -> None:
         self.native_search = NativeSearchClient()
         self.read_only = read_only
         self.enable_legacy_mail_search = enable_legacy_mail_search
-        self.bridge = bridge if bridge is not None else NativeBridge()
+        self.contacts_backend: ContactsBackend = contacts_backend
+        self.bridge = bridge if bridge is not None else NativeBridge(contacts_backend)
         self.mail_executor = mail_executor
         self.body_index = body_index if body_index is not None else BodyIndex()
         self.calendar_executor = calendar_executor
@@ -310,6 +314,17 @@ class Service:
         )
 
     def description(self, definition: Definition) -> str:
+        if definition.name.startswith("contacts_"):
+            return definition.description + (
+                " Selected backend: Contacts.app Apple Events; Automation setup required, no UI automation; IDs use contacts-app: prefix, records not unified across sources."
+                if self.contacts_backend == "contacts-app"
+                else " Selected backend: public unified CNContactStore; direct Contacts permission required."
+            )
+        if definition.name == "request_permissions" and self.contacts_backend == "contacts-app":
+            return (
+                definition.description
+                + " Contacts setup uses Automation to Contacts.app and may open it in the background; use Automation settings, not the Contacts pane."
+            )
         if definition.name not in REVIEWED_TOOLS:
             return definition.description
         mode = self.approval_policy.mode_for(definition.name)
@@ -364,7 +379,9 @@ class Service:
                 "calendar", permissions.calendar if permissions is not None else "unknown"
             ),
             access_action(
-                "contacts", permissions.contacts if permissions is not None else "unknown"
+                "contacts",
+                permissions.contacts if permissions is not None else "unknown",
+                self.contacts_backend,
             ),
             AccessAction(
                 capability="mail_files",
@@ -392,6 +409,7 @@ class Service:
             ("contacts", permissions.contacts if permissions is not None else "unknown"),
         ]
         return Doctor(
+            server_version=__version__,
             python=platform.python_version(),
             sdk=version("mcp"),
             read_only=self.read_only,
@@ -407,7 +425,7 @@ class Service:
                     if access_granted(domain, status)
                     else "blocked",
                     detail="OS authorization only; actual data reads remain separately verified. "
-                    + " ".join(access_action(domain, status).instructions),
+                    + " ".join(access_action(domain, status, self.contacts_backend).instructions),
                 )
                 for domain, status in permission_states
             ]
@@ -494,8 +512,36 @@ class Service:
                     raise NativeError(
                         "invalid_native_response", "Permission result belongs to a different domain"
                     )
-                guidance = access_action(request.domain, result.after)
-                if result.request_attempted and not result.request_completed and not result.granted:
+                if result.route != (
+                    self.contacts_backend if request.domain == "contacts" else "framework"
+                ):
+                    raise NativeError(
+                        "invalid_native_response",
+                        "Permission result belongs to a different startup route",
+                    )
+                guidance = access_action(request.domain, result.after, result.route)
+                if (
+                    result.domain == "contacts"
+                    and result.route == "framework"
+                    and result.before == "not_determined"
+                    and result.after == "denied"
+                    and result.error_code == 100
+                ):
+                    guidance = AccessAction(
+                        capability="contacts",
+                        status="denied",
+                        action="diagnose_host",
+                        settings_path="System Settings → Privacy & Security → Contacts",
+                        instructions=[
+                            "macOS refused the Contacts request (error 100). This alone does not prove the user declined it.",
+                            "If no Contacts dialog or Settings entry appeared, inspect the responsible host for com.apple.security.personal-information.addressbook and NSContactsUsageDescription. Direct framework access needs a host fix or properly authorized native helper if these are missing; repeating the request will not add them. See docs/PERMISSION_MCP_COMPARISON.md for researched alternatives; no fallback is enabled.",
+                            "If the user actually declined a dialog and the host is listed in Contacts settings, enable that existing entry and verify again.",
+                            "MCP send/create approval policy is separate and cannot grant OS Contacts access.",
+                        ],
+                    )
+                elif (
+                    result.request_attempted and not result.request_completed and not result.granted
+                ):
                     guidance = AccessAction(
                         capability=request.domain,
                         status=result.after,
@@ -529,6 +575,7 @@ class Service:
                     )
                 return PermissionResult(
                     domain=result.domain,
+                    route=result.route,
                     before=result.before,
                     after=result.after,
                     request_attempted=result.request_attempted,

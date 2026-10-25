@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from macos_personal_mcp.calendar_open import NativeCalendarOpener
 from macos_personal_mcp.calendar_writes import native_calendar_executor
-from macos_personal_mcp.models import Failure, IndexRequest, MailScope
+from macos_personal_mcp.models import ContactsBackend, Failure, IndexRequest, MailScope
 from macos_personal_mcp.native import NativeBridge
 from macos_personal_mcp.permissions import load_config
 from macos_personal_mcp.process import NativeError
@@ -68,7 +68,16 @@ def main() -> None:
         action="store_true",
         help="Expose compatibility-only mail_search_legacy; requires explicit scoped FTS5 cache maintenance",
     )
+    parser.add_argument(
+        "--contacts-backend",
+        choices=["framework", "contacts-app"],
+        default="framework",
+        help="Owner-selected Contacts route: direct unified API (default) or Contacts.app Apple Events; never an automatic fallback",
+    )
     args = parser.parse_args()
+    contacts_backend: ContactsBackend = (
+        "contacts-app" if args.contacts_backend == "contacts-app" else "framework"
+    )
     if args.read_only and (
         args.enable_mail_send or args.enable_calendar_create or args.enable_calendar_open
     ):
@@ -77,7 +86,7 @@ def main() -> None:
     os.environ.pop("CONTROL_PLANE_API_KEY", None)
     try:
         config = load_config(args.config)
-        bridge = NativeBridge()
+        bridge = NativeBridge(contacts_backend)
         service = Service(
             read_only=not (
                 args.enable_writes
@@ -97,6 +106,7 @@ def main() -> None:
             else None,
             calendar_opener=NativeCalendarOpener(bridge) if args.enable_calendar_open else None,
             approval_config=config,
+            contacts_backend=contacts_backend,
         )
     except (NativeError, OSError, ValueError) as error:
         print(

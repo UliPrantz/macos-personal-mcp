@@ -306,9 +306,13 @@ class Contacts(Model):
     unavailable_fields: list[str] = ["notes (restricted entitlement)"]
 
 
+type ContactsBackend = Literal["framework", "contacts-app"]
+
+
 class NativePermissions(Model):
     calendar: str
     contacts: str
+    contacts_backend: ContactsBackend = "framework"
 
 
 type PermissionDomain = Literal["calendar", "contacts"]
@@ -344,6 +348,7 @@ class HostContext(Model):
 
 class NativeAccessResult(Model):
     domain: PermissionDomain
+    route: ContactsBackend = "framework"
     before: str
     after: str
     request_attempted: bool
@@ -353,6 +358,8 @@ class NativeAccessResult(Model):
 
     @model_validator(mode="after")
     def observed_grant(self) -> Self:
+        if self.domain == "calendar" and self.route != "framework":
+            raise ValueError("Calendar authorization always uses the framework route")
         expected = (
             self.after == "full_access"
             if self.domain == "calendar"
@@ -376,6 +383,7 @@ class Capability(Model):
 
 class Doctor(Model):
     schema_version: Literal[1] = 1
+    server_version: str = "unknown"
     python: str
     sdk: str
     read_only: bool

@@ -30,7 +30,7 @@ resolution or network download is needed when the MCP normally starts.
   recurring occurrences, exact occurrence reads, title/location/notes search,
   timezone provenance and all-day civil dates. Account visibility depends on OS
   permissions and configured sources; all-account reconciliation is not established.
-- Contacts: public unified identities, name/organization/phone/email search,
+- Contacts: public unified identities by default, name/organization/phone/email search,
   labeled phones/emails, postal addresses and deterministic pagination. Limited
   access is reported; restricted notes are deliberately unavailable.
 - Mail preparation: exact configured sender, literal To/CC/BCC, content and local
@@ -39,7 +39,12 @@ resolution or network download is needed when the MCP normally starts.
 Mail account/header/targeted API reads use public Apple Events through a fixed
 bundled script; native body search reads the local catalogue, MIME and Spotlight
 formats. Calendar/Contacts
-use public PyObjC APIs in bounded disposable Python workers. No executable script
+use public PyObjC APIs in bounded disposable Python workers. Optional
+`--contacts-backend contacts-app` uses public Apple Events through Foundation,
+with explicit Automation setup and read-time no-prompt flags. It exposes
+non-unified records with `contacts-app:` IDs, batching fixed fields in memory
+without a persistent copy. It never acts as an automatic permission fallback.
+See [decision 0017](decisions/0017-selectable-contacts-app-automation.md). No executable script
 is constructed from tool inputs. See [the worker decision](decisions/0003-public-native-read-workers.md)
 and STATUS for real scopes, timings and permission evidence.
 

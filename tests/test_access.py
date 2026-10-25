@@ -140,8 +140,10 @@ async def test_doctor_is_nonprompting_and_not_determined_has_concrete_request(
     monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
     monkeypatch.setattr(Path, "home", staticmethod(lambda: tmp_path))
     bridge = PermissionBridge()
+    monkeypatch.setattr("macos_personal_mcp.service.__version__", "loaded-test-version")
     result = await Service(bridge=bridge).call("doctor", "{}")
     assert isinstance(result, Doctor)
+    assert result.server_version == "loaded-test-version"
     assert bridge.calls == ["permissions"]
     assert result.host is not None and result.host.parent_command == "/synthetic/host"
     for domain in ("calendar", "contacts"):
@@ -305,4 +307,41 @@ async def test_permission_bridge_uses_same_worker_with_human_response_deadline(
         "request_permissions", PermissionRequest(domain="calendar"), NativeAccessResult
     )
     assert result.granted and not result.request_attempted
-    assert calls[0][-2:] == ["macos_personal_mcp.native_worker", "request_permissions"]
+    assert calls[0][-3:] == ["macos_personal_mcp.native_worker", "request_permissions", "framework"]
+
+
+async def test_first_contacts_refusal_without_prompt_guides_host_diagnosis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("macos_personal_mcp.service.host_context", synthetic_host)
+    native = NativeAccessResult(
+        domain="contacts",
+        before="not_determined",
+        after="denied",
+        request_attempted=True,
+        request_completed=True,
+        granted=False,
+        error_code=100,
+    )
+    bridge = PermissionBridge(result=native)
+    result = await Service(bridge=bridge).call("request_permissions", '{"domain":"contacts"}')
+    assert isinstance(result, PermissionResult) and not result.granted
+    assert result.guidance.action == "diagnose_host" and result.guidance.tool is None
+    text = " ".join(result.guidance.instructions)
+    assert "does not prove the user declined" in text
+    assert "com.apple.security.personal-information.addressbook" in text
+    assert "NSContactsUsageDescription" in text
+    assert "If the user actually declined" in text
+    assert bridge.calls == ["request_permissions"]
+
+
+def test_denial_and_stale_catalog_guidance_does_not_invent_user_choice_or_entry() -> None:
+    from macos_personal_mcp.access import permission_problem
+
+    denied = permission_problem("contacts", "denied")
+    assert "does not prove the user declined" in denied
+    assert "only if the responsible app/helper has an entry" in denied
+    assert "diagnose the host" in denied
+    undecided = permission_problem("contacts", "not_determined")
+    assert "request_permissions tool is missing" in undecided
+    assert "restart the existing MCP connection" in undecided
