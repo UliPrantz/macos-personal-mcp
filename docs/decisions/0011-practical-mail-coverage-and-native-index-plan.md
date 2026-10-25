@@ -1,9 +1,8 @@
 # 0011: Practical Mail coverage and native-index implementation plan
 
 Status: product acceptance clarification agreed by the owner, 24 October 2026.
-Native-index backend recommended by research; implementation was then deferred.
-The owner subsequently authorized implementation; see decision 0012 and STATUS.md.
-Decision 0005 still describes the installed explicit-scope FTS backend.
+Native hybrid implemented in decision 0012; current unified search is defined by
+decision 0013. Decision 0005 applies only to the optional legacy FTS backend.
 
 ## Product criterion
 
@@ -33,7 +32,7 @@ for larger scopes. The entire fixed week (401 messages) was read in 1.45 seconds
 warm, avoiding native indexing/tokenization gaps for that decoded text. Keep only
 process-memory identity/fingerprint caches, and inspect a bounded missing/pending
 exception set directly. Avoid a second full-body database
-for this first implementation. Keep the current scoped FTS route available; an
+for the native implementation. Keep scoped legacy FTS available by opt-in; an
 incremental archive cache remains a fallback if native-format compatibility or
 maintenance proves disproportionate.
 
@@ -43,14 +42,10 @@ store writes, private API calls, entitlement changes, process injection, UI
 extraction or provider connections are authorized by this decision. Existing
 send/calendar approval policy is unchanged and invitations remain excluded.
 
-## Delivery boundary
+## Implementation
 
-The owner asked for research and a concrete plan that a cheaper model can
-implement. This commit changes documentation only. Research prototypes and
-private fixtures remain ignored locally. No runtime switch, tool registration,
-permission grant or host reload is part of this work.
-
-Follow [the V1 plan](../MAIL_SEARCH_V1_PLAN.md) and
-[the format notes](../NATIVE_MAIL_INDEX_FORMAT.md), including license provenance,
-synthetic failure tests and actual SDK/desktop verification before activation.
-Semantic-vector reuse is not demonstrated and must not delay V1.
+The initial research and delivery plan have been completed. The durable format
+observations are in the [native index reference](../NATIVE_MAIL_INDEX_FORMAT.md),
+including provenance and compatibility limits. Decisions 0012/0013 define shipped
+behavior; [STATUS.md](../STATUS.md) records actual verification. Semantic-vector
+reuse remains unproven and is not part of the current search implementation.

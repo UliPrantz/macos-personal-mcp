@@ -85,11 +85,11 @@ direct framework access; no helper or third-party app modification is added. The
 expose this compatibility limit rather than imply Contacts universally works.
 
 Peer review found an existing alternative: Contacts.app through public Apple
-Events. Local read-only bulk/targeted probes succeeded, but the affected-host
-check is pending and record identities differ from unified CNContactStore.
-See PERMISSION_MCP_COMPARISON.md before choosing a new backend. This investigation
-does not silently switch routes or interpret framework refusal as consent to a
-broader data path.
+Events. Local probes succeeded, but subsequent direct-host reads failed even
+after Automation consent because the original caller's Contacts authorization
+still applies. Decisions 0017/0018 record the explicit backend and host boundary.
+Record identities differ from unified CNContactStore; no automatic fallback is
+used. See [the permission comparison](../PERMISSION_MCP_COMPARISON.md).
 
 Doctor reports its loaded server_version, and error guidance explains that an
 old server can retain an old catalog while newly spawned workers read new files.

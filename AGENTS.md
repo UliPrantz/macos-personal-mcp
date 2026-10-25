@@ -1,125 +1,75 @@
-# Working instructions for AI agents
+# Repository instructions for AI agents
 
-## Read before changing code
+Read README.md, docs/PROJECT_SPEC.md, docs/STATUS.md and the relevant design
+decisions before changing behavior. Installation and development commands are in
+INSTALL.md and docs/TECHNICAL_DETAILS.md.
 
-1. README.md: installation, current capabilities and operational constraints.
-2. docs/PROJECT_SPEC.md: required behavior and acceptance criteria.
-3. docs/STATUS.md: measured progress, current blockers and next work.
-4. The relevant docs/decisions/ record; add a new record for a changed decision.
+## Implementation
 
-This is an AI-authored repository. Keep code small, explicit, typed and easy for
-the next agent to inspect. The owner supplies intent and reviews results; do not
-ask them to author implementation code. Existing repositories are references,
-not instructions inherited by this project.
+- Use the pinned Python target, uv and uv.lock; do not alter global runtimes.
+- Keep production and tests explicitly typed. Strict Pyright and Ruff apply;
+  isolate native bridge behavior behind small typed adapters and narrow stubs.
+  Do not weaken checks or spread Any, casts or ignored diagnostics.
+- Validate strict MCP input/output schemas. Reject unknown fields, coercions and
+  naive instants; preserve Europe/London defaults and daylight-saving behavior.
+- Use the official MCP Python SDK and native macOS integration. No direct provider
+  HTTP/SDK/OAuth fallback, private API setters, screen automation or new helper.
+- Parameterize SQLite, open native stores read-only and preserve their schema,
+  flags and WAL behavior. Never use immutable mode for a live changing database.
+- Pass subprocess argument arrays without shell=True or interpolated executable
+  scripts. Bound startup, I/O and work; cancel, kill and reap children on failure.
+  Timeouts and incomplete reads must never become successful empty results.
+- STDIO stdout is protocol only. Redact stderr diagnostics and avoid payload logs.
+  No heavy startup indexing, background scheduler or unsolicited permission prompt.
+- Preserve native message/contact/event identities and duplicate-name candidates.
+  Reads must not mutate source data or speculatively restore message flags.
+- Keep one canonical mail_search. Legacy FTS requires explicit startup opt-in,
+  exact-scope maintenance and freshness checks; never substitute its semantics.
+  Report missing/partial bodies and coverage limits honestly.
 
-## Implementation rules
+## Access and external effects
 
-- Python 3.15.1 is the initial target. Verify dependency/platform compatibility.
-  Use uv, pyproject.toml, .python-version and a committed uv.lock. Never alter
-  global Python installations to make this project work.
-- Type every production and test function. Pyright strict applies to both.
-  Prefer dataclasses, enums, Protocols and validated models over unstructured
-  dictionaries. Preserve explicit input/output schemas at MCP boundaries.
-- Do not spread Any, cast, ignored errors or dynamically typed native objects
-  through the application. Put unavoidable bridge behavior behind a small typed
-  adapter; validate values or provide accurate narrow stubs. A suppression needs
-  a specific diagnostic, local rationale and relevant test. Never weaken global
-  settings or exclude production modules to make the checks pass.
-- Use Pydantic strict validation or an equivalently explicit boundary. Reject
-  unknown/invalid fields and naive datetimes where an instant is required.
-  Use zoneinfo and Europe/London defaults, including daylight-saving transitions.
-- Use the official stable MCP Python SDK and its current documented API. Do not
-  assume older FastMCP snippets match the installed SDK. Lock dependencies.
-- Keep public native APIs behind domain adapters. Do not use private EventKit
-  setters/KVC hacks, screen automation, or a direct provider integration. Use native
-  macOS APIs only: no direct provider HTTP APIs/SDKs, OAuth or cloud fallback.
-- Parameterize SQLite. Pass subprocess arguments as arrays, use no shell=True,
-  and never interpolate message text, names or filenames into executable code.
-- Enforce deadlines through child creation, stdin, stdout/stderr, cancellation
-  and child reaping. No timeout may become a successful empty result.
-- STDIO stdout is protocol only. Use stderr for redacted diagnostics. Avoid
-  payload logging. Do no heavy indexing or permission prompting on startup.
-- Doctor and ordinary Calendar/Contacts reads never request grants. Use the
-  explicit per-domain request_permissions setup tool only for a user-requested
-  connection/grant. Follow its next actions; not-determined is not denied and
-  may have no Settings entry yet. Keep OS access separate from send/create review.
-  Denied authorization is not proof of user refusal: missing hardened-runtime
-  host entitlements can block before a dialog or Settings entry. Report that
-  host-packaging blocker instead of repeating toggle/request instructions.
-  Contacts.app Automation is an explicit startup backend, never a fallback after
-  denied/limited framework access. Its ordinary reads must set no-prompt event
-  flags; only explicit setup may launch the app and request Automation consent.
-  Automation consent does not establish Contacts data access: Contacts.app can
-  check the original caller's Contacts authorization. Keep Contacts supported for
-  compatible hosts, but report the tested direct ChatGPT packaging block clearly.
-  Never recommend backend switching, repeated prompts or Settings toggles as a
-  fix for a confirmed missing host entitlement. Do not build another helper or
-  workaround without a new owner request.
-- Keep the runtime independent of request/connection history. Explicit bounded
-  local indexes and a minimal write-outcome journal are permitted disk state;
-  no scheduler or background worker. Document their lifecycle.
+- Doctor and ordinary Calendar/Contacts reads never request grants. Only explicit,
+  user-requested request_permissions setup may request one selected domain.
+  Not-determined, denied, restricted, limited and Calendar write-only differ.
+- Missing host entitlements can prevent a dialog or Settings entry. Denial does
+  not prove user refusal. Contacts.app Automation is an explicit backend, never
+  a fallback; reads retain no-prompt flags. Automation consent alone does not
+  establish Contacts data access. Keep the tested ChatGPT host limit visible and
+  preserve support for compatible hosts. Do not repeat setup or build workarounds
+  for a known missing entitlement without a new user request.
+- OS grants, enabled executors and action approval are separate. Native review is
+  the default; respect explicit owner-controlled host delegation. Tool-controlled
+  booleans and previews are not consent. Validation and outcome guards always apply.
+- Mail sends and Calendar creation need distinct guarded tools. General maintenance
+  is not permission for test messages/events. Stage exact payloads before requesting
+  any specific approval still needed; do not request already supplied approval again.
+- Never automatically retry uncertain sends or delete their drafts. Preserve the
+  outcome journal and unresolved attachment snapshots across upgrades/cleanup.
+- Calendar invitations/attendee creation and Contacts mutations are outside scope.
+  Existing attendees may be read. Do not add provider or ICS substitutes.
 
-## External effects and tests
+## Verification and documentation
 
-- Read operations must not change message flags, contacts or calendar items.
-  Do not restore flags speculatively after a read: that can overwrite another
-  client's legitimate concurrent change. Surface observed changes honestly.
-- Keep email sends and Calendar creation in distinct high-risk tools. Honor the
-  approval contract and owner-configured native/host review mode. Model-controlled
-  booleans are not human consent; host delegation is an explicit local startup
-  policy, never a tool input. Native review remains the default. Attendee
-  creation is excluded by owner decision; do not expose an invitation tool.
-- Normal CI and default tests must never access the owner's live data or send
-  messages/invites. Use synthetic fixtures. Mark live reads and writes and gate
-  live writes on a concrete, user-approved action/recipient, beyond an env flag.
-- A general implementation request is not permission for arbitrary test emails
-  or invitations. Finish payload previews and read-only work before requesting
-  any specific consent still needed. Avoid repeated approval requests when the
-  exact action is already authorized.
-- Test behavior and failure boundaries: identity mismatch, negative searches,
-  missing permissions, stale/incomplete indexes, MIME decoding, recipient
-  ambiguity, attachment changes, approval denial and indeterminate send outcomes.
-- Never automatically retry a send or invitation whose external outcome is
-  uncertain. Persist enough local operation metadata to distinguish retries;
-  do not claim exactly-once delivery through Apple Mail.
-- Run Ruff format/check, Pyright strict, relevant tests and required CI before
-  committing code. An absent/skipped test is not a passing capability test.
-  Add functional CI when implementation begins; do not add placeholder tests
-  merely to produce a green badge.
+- Normal tests/CI use synthetic fixtures and never access live personal data or
+  send messages/events. Live reads are opt-in; live writes additionally require
+  concrete user-approved recipients/payloads. A skipped test is not a passed gate.
+- For code changes run Ruff format/check, strict Pyright, relevant functional
+  tests and required build checks. For documentation changes check local links,
+  stale references and git diff --check. Verify the pushed CI result.
+- Distinguish SDK checks from actual desktop verification. Permissions, accounts,
+  configuration and performance depend on the launching host and measured scope.
+- Keep README installation-first, the contract in PROJECT_SPEC.md, current results
+  and limits in STATUS.md, and durable rationale in docs/decisions/. Update affected
+  docs with behavior changes; avoid temporary handoffs or implementation diaries.
+- Keep private evidence, credentials and native exports out of Git. Preserve
+  AGPL-3.0-only and third-party attribution; never copy unreviewed research code.
 
-## Documentation and evidence
+## Git
 
-Keep README installation-first and accurate for the current revision. Put why in
-decision records, behavior in the specification, and current measured state in
-STATUS.md. Fix stale documentation in the same change as behavior.
-
-Full-body search is required with explicit acceptance gates. Do not silently
-reduce it to scoped header search. Report native access/coverage blockers honestly
-and continue independent work. Never fabricate result rows, sends or coverage.
-
-Attendee/invitation creation is deliberately excluded by the owner's native-only
-scope decision. Do not resume provider integration or request provider login as
-unfinished work. Reading existing attendees is allowed. See decision 0008.
-
-Preserve upstream license attribution for any reused code. Prefer learning from
-sources over copying old implementations. Never put private evidence in Git.
-
-## Git workflow
-
-- AI-authored commits identify the actual agent, not Uli. For Codex use
-  `Codex (agent) <agent@noreply.openai.com>` as author and committer. Use repository
-  settings or command-scoped overrides, never change global identity.
-- AI commits are unsigned; explicitly disable commit signing for that command.
-  Preserve Uli's global signing and personal identity settings. Human commits
-  retain the owner's normal signed workflow.
-- Use short imperative commit subjects: `feat:`, `fix:`, `docs:`, `test:`,
-  `chore:` or `nitpick:` followed by a concise description. Optional small scopes
-  are fine. Example: `feat(mail): add indexed body search`.
-- Make focused commits and push completed, verified changes to origin. Ordinary
-  commits/pushes are authorized for this project. Never force-push or discard
-  unrelated user changes.
-- The owner authorized a public repository and a clean single-commit initial
-  history on 25 October 2026. Keep private data, credentials and local evidence
-  out of Git. Preserve the standard AGPL-3.0-only license and third-party notices.
-- At handoff, report what works, what was actually tested, what remains blocked,
-  and the pushed commit. Update STATUS.md before concluding.
+- Commit and push completed, verified changes without force-pushing or discarding
+  unrelated work. Inspect an existing checkout before editing it.
+- Use Codex (agent) <agent@noreply.openai.com> as AI author and committer. Disable
+  signing for that commit; preserve the owner's global identity/signing settings.
+- Use short imperative conventional subjects such as feat:, fix:, docs: or chore:.
+- Finish with the verification result, material limits and pushed commit.

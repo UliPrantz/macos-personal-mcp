@@ -316,12 +316,30 @@ recipient/Sent state and delivered attachment-byte checks passed during
 pre-release verification. General implementation or installation authorization
 does not authorize arbitrary messages or invitations.
 
-For upgrades, sync the locked target environment and repeat protocol/native/
-desktop checks before enabling its entry. To uninstall a future registration,
+For upgrades, sync the locked target environment and verify the changed
+capabilities from the actual desktop connection. To uninstall a registration,
 remove only this project's MCP table, then its isolated `.venv`; do not remove
 other tools or native application data. The configured entry is `macos-personal`;
 preserve all unrelated MCPs.
 
-Read [AGENTS.md](../AGENTS.md), [contract](PROJECT_SPEC.md),
-[prior evidence](LOCAL_EVIDENCE.md) and [handoff](CODEX_HANDOFF.md).
+Contributors should read [AGENTS.md](../AGENTS.md), the [behavior contract](PROJECT_SPEC.md)
+and relevant [design decisions](decisions/). Current measured results and limits
+are in [STATUS.md](STATUS.md).
+
+## Native and protocol references
+
+- Mail and Calendar scripting dictionaries are installed at
+  `/System/Applications/Mail.app/Contents/Resources/Mail.sdef` and
+  `/System/Applications/Calendar.app/Contents/Resources/iCal.sdef`.
+- Apple documents [EventKit reads](https://developer.apple.com/documentation/eventkit/retrieving-events-and-reminders),
+  [event creation](https://developer.apple.com/documentation/eventkit/creating-events-and-reminders)
+  and [Contacts](https://developer.apple.com/documentation/contacts).
+- The [native Mail index format reference](NATIVE_MAIL_INDEX_FORMAT.md) describes
+  the observed on-disk structures and compatibility boundary.
+- Protocol references: [official MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk),
+  [SDK documentation](https://py.sdk.modelcontextprotocol.io/),
+  [STDIO transport](https://modelcontextprotocol.io/specification/latest/basic/transports/stdio)
+  and [tools](https://modelcontextprotocol.io/specification/latest/server/tools).
+- Preserve [third-party attribution](../THIRD_PARTY.md). Public docs contain
+  scoped results; raw native data and private diagnostics belong outside Git.
 

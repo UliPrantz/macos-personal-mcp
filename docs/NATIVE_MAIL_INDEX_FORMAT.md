@@ -1,16 +1,11 @@
-# Native Mail index research handoff
+# Native Mail index format reference
 
-> Implementation update, 24 October: the owner authorized execution. Version 0.2.0
-> implements the native hybrid as `mail_search_native`; see decision
-> [0012](decisions/0012-native-hybrid-mail-search.md) and [STATUS.md](STATUS.md).
-> Research/deferred wording below describes the earlier planning checkpoint.
-> New-tool desktop discovery/readback is pending connection reload.
-
-
-24 October 2026. **Research observations, not a supported Apple format or deployed
-MCP backend.** Validated on this Mac, macOS 26.5.2 (25F84), using read-only native
-files and isolated Python 3.15.1 probes. Read [the implementation plan](MAIL_SEARCH_V1_PLAN.md)
-and [the measurements](EXPERIMENTS_NATIVE_MAIL.md) before using these notes.
+Observed on macOS **26.5.2** (25F84), Mail V10, with read-only file access.
+These are undocumented on-disk structures, not an Apple-supported format contract.
+The native backend implements this profile behind compatibility and consistency
+checks; other profiles require validation before support is enabled. See the
+[search contract](decisions/0013-unified-mail-search.md) and
+[current verification and limits](STATUS.md).
 
 ## Proven path
 
@@ -93,9 +88,10 @@ boundary variants. These explain the owner-confirmed Mail hit missed by the
 initial reader. Mode-1/control forms are outside the validated V1 keyword route.
 
 Implement explicit node/entry/variant/time bounds and report exhausted expansion
-as partial. Do not broaden a partial expansion into a definitive negative. The
-isolated `word_lookup.py` contains the validated traversal and normalization
-experiments; build synthetic equivalents before translating to production.
+as partial. Do not broaden a partial expansion into a definitive negative. Production traversal and normalization live in
+[`terms.py`](../src/macos_personal_mcp/mail_native/terms.py) and
+[`alphabet.py`](../src/macos_personal_mcp/mail_native/alphabet.py), with synthetic
+format and query tests.
 
 ## Postings and identity
 
@@ -151,33 +147,17 @@ must not trigger an unbounded archive scan. Test wrong-order phrases and date
 boundaries as negatives. Preserve the distinction between token, phrase and
 arbitrary substring semantics.
 
-The demonstrated fuzzy prototype accepts ASCII alphanumeric words only. Fuzzy
-spelling can traverse the existing trie with edit-distance pruning and
-explicit work limits. It was demonstrated for misspellings without creating a
-second vocabulary. This is not semantic search. Existing vector files do not
+Fuzzy spelling accepts ASCII alphanumeric words only and traverses the existing
+trie with edit-distance pruning and explicit work limits. No second vocabulary
+is maintained. This is not semantic search. Existing vector files do not
 provide a supported matching query encoder; reuse of those vectors is unproven.
 
-## Research files, provenance and licensing
+## Provenance and licensing
 
-Ignored local files are under `.local/native-index-two-hour-20261024/`:
-
-| File | Purpose |
-| --- | --- |
-| `dictionary_compact.py`, `word_lookup.py` | Trie, current alphabet, normalized token/alias lookup |
-| `postings_reader.py`, `test_postings_formats.py` | Linked posting decoder and randomized synthetic roundtrips |
-| `shadow_view.py`, `test_shadow_guard.py` | Persisted view and change/lag guards |
-| `permissive_identity.py` | Apache-based narrow OID-to-Mail identity adapter |
-| `coverage_inventory.py` | GPL-backed research coverage inventory; do not adopt silently |
-| `permissive_inventory_probe.py`, `permissive_cached_inventory_probe.py` | Apache-only full identity inventory, block fingerprints and warm-cache evidence |
-| `native_bound_body.py` | Explicit exact native binding for malformed/missing RFC IDs |
-| `query_pipeline.py`, `body_reader.py` | Research end-to-end body verification; not production-hardened |
-| `fuzzy_dictionary_probe.py` | Bounded native-vocabulary spelling experiment |
-| `checkpoint-format-evidence.md`, `semantic-and-license-notes.md` | Detailed source review and limits |
-
-These private files are available on the investigation Mac, not in Git. They may
-contain private fixtures/identifiers. Do not commit them wholesale or promote
-untyped research code directly. No package installation or experiment dependency
-should occur during production startup.
+Production adapters live in `src/macos_personal_mcp/mail_native/`; synthetic
+format, identity and failure tests are in `tests/test_native_mail.py`. Experimental
+probes and private fixtures are not runtime dependencies and are excluded from
+Git. Implement observed format facts independently and preserve source licenses.
 
 Primary references:
 

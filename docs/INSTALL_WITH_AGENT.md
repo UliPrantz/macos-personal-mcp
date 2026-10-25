@@ -140,7 +140,7 @@ Verify from the **desktop tool catalog**, rather than only Terminal:
 No test email, Calendar event, invitation, native-store write, shadow-index build
 or existing-item deletion is part of installation verification.
 
-## 5. Finish with a usable handoff
+## 5. Report the installation result
 
 Report the installed revision and path, server name, read-only/executor profile,
 effective approval mode, actual desktop checks passed and any precise blocker.

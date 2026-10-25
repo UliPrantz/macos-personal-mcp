@@ -173,7 +173,7 @@ doesn't exist. [Measured results and current limits](docs/STATUS.md).
 - [Permission states, native dialogs and the right Settings entry](docs/PERMISSIONS.md)
 - [Development and verification](docs/TECHNICAL_DETAILS.md#development-and-verification)
 - [What we learned from other Apple Mail MCPs](docs/MAIL_MCP_COMPARISON.md)
-- [Agent installation runbook](docs/INSTALL_WITH_AGENT.md) and [maintainer handoff](docs/CODEX_HANDOFF.md)
+- [Agent installation runbook](docs/INSTALL_WITH_AGENT.md)
 
 </details>
 

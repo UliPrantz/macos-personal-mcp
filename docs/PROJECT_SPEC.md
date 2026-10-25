@@ -2,17 +2,15 @@
 
 ## Goal
 
-Give the owner's native ChatGPT desktop client one reliable local MCP for Mail,
-Calendar and Contacts. Build the agreed native subset of
-[supermemoryai/apple-mcp](https://github.com/supermemoryai/apple-mcp) fresh in Python, and prove the result against this Mac. Do not inherit upstream
-placeholders, silent failures or parsing shortcuts.
+Provide one reliable local Python MCP for native Mail, Calendar and Contacts,
+with explicit host compatibility and source coverage. The feature inspiration is
+[supermemoryai/apple-mcp](https://github.com/supermemoryai/apple-mcp); this project
+has its own implementation and verification.
 
-The owner explicitly requires fast complete email body search. Scoped header
-search is an additional useful tool, not a substitute for that requirement.
-On 24 October the owner clarified the product bar: prioritize recent mail
-(especially the last week) and practical parity with Apple Mail search; a few
-missing older messages do not invalidate a useful backend. This does not turn
-unknown coverage into a completeness guarantee. See decision 0011.
+Full message-body search is required alongside metadata/header search. Prioritize
+recent mail, especially the last week, and practical parity with Apple Mail.
+A few missing historical messages can be acceptable when gaps are reported;
+unknown coverage must not become a completeness guarantee. See decision 0011.
 
 ## Runtime
 
@@ -52,8 +50,8 @@ unknown coverage into a completeness guarantee. See decision 0011.
 
 ## Required tool behavior
 
-Use distinct tool names for operations with different effects. Proposed names
-below may be refined, but the capabilities and approval separation must remain.
+Use distinct tool names for operations with different effects. The following
+contracts define the supported surfaces and their limits.
 
 ### Mail
 
@@ -114,59 +112,39 @@ below may be refined, but the capabilities and approval separation must remain.
 - Reply/forward and attachment extraction are useful extensions, but not required
   by the original feature list. Do not let them delay the required operations.
 
-### Full-body index acceptance gate
+### Full-body search integrity
 
-First establish an authorized, complete-enough data source. Investigate read-only
-Mail database/EMLX access with real schema detection, a supported native export
-path, or another public native source. Subsequent authorized read-only research
-has demonstrated native dictionary/posting retrieval on this Mac; see
-EXPERIMENTS_NATIVE_MAIL.md. Reading observed on-disk formats does not authorize
-private API invocation or native-store writes. No privacy bypasses, copied
-credentials, private APIs, or silent changes to Full Disk Access settings.
+The canonical `mail_search` uses native catalogue/MIME reads and guarded native
+index retrieval. The [format reference](NATIVE_MAIL_INDEX_FORMAT.md) documents the
+validated profile. Reading observed formats does not authorize private API calls,
+native-store writes, privacy bypasses or credential access.
 
-If indexing local Mail files, open source databases read-only with parameterized
-queries. Never change their schema, flags, WAL settings or journal mode. Do not
-use SQLite immutable mode to pretend a live changing database is a snapshot.
-Use consistent source access and write only to our own index. Decode MIME,
-charset/transfer encoding, multipart alternatives, HTML-only text and long bodies
-with synthetic tests. Do not count attachments as body text without documenting
-an explicit additional feature.
+Open native SQLite sources read-only with parameterized queries and normal WAL
+semantics. Do not use immutable mode to pretend a changing database is a snapshot.
+Validate source identities, checkpoints and supported format bounds; changing,
+lagging and unsupported sources must produce explicit failures or partial results.
+Decode MIME charset/transfer encodings, multipart alternatives, HTML-only text and
+long bodies with synthetic coverage. Attachments are excluded from body text.
 
-If an owned index is selected, prefer SQLite FTS5 when benchmarks support it. Initial build
-and incremental refresh are explicit bounded/resumable operations. Keep them
-outside pure read tool handlers: a read-only search must not secretly mutate its
-index. A separate `mail_refresh_index`/CLI command may update only our cache and
-must be annotated honestly as a non-destructive local write. The host can grant
-this maintenance operation a different policy from sends.
+Track native coverage, source snapshot/freshness, errors, exclusions, unavailable
+and partial bodies, unsearched candidates and query limits. Account for updates,
+moves, deletions and source rebuilds. A recent message missing from the index
+needs a bounded fallback or an explicit unavailable reason. Do not generalize
+catalogue membership, sampled recall or completed execution to exhaustive body
+coverage; a partial zero must never imply that no matching email exists.
 
-Track corpus/folder coverage, source snapshot/freshness, indexed and missing
-counts, errors, exclusions and refresh time. Account for additions, changes,
-moves, deletes and source rebuilds; do not duplicate a message just because an ID
-changed. Define stale-index behavior. Never call a result complete for the current
-mailbox if the source watermark/coverage does not justify it. Offer explicit
-partial results only with `complete=false` and the missing scope/reason.
+The optional owned FTS5 cache has explicit bounded/resumable CLI maintenance.
+Search reads never secretly refresh it. Preserve exact declared scope and
+30-minute/current-inventory freshness guards. Only the owned cache may be written;
+its semantics must never silently replace canonical native search.
 
-Benchmark goals after an index is built: indexed query execution p95 <= 1 second
-and warm end-to-end MCP search p95 <= 2 seconds on a declared representative
-corpus on this Mac. Measure cold process startup separately. Do not mix initial
-indexing time into a warm benchmark or use tiny synthetic performance as proof
-of real-account completeness. Goals are targets until actual measurements exist.
-
-If protected source access or missing bodies block this gate, ship independent
-working tools but leave full-body search clearly blocked in STATUS.md. Report
-the exact access/backend decision needed. Do not declare the overall project
-complete by quietly substituting bounded body scans or header-only search.
-Known small historical gaps may be reported as partial coverage while useful
-native-index results ship. Distinguish catalogue/identity coverage, sampled
-retrieval recall, current Mail parity and exhaustive body coverage. Native
-checkpoint membership alone is not proof of every word's presence. A recent
-message known to be pending or absent needs a bounded fallback or an explicit
-unavailable reason. The native-first route is exposed through unified
-`mail_search`; `mail_search_native` is removed. See STATUS.md for current native
-and SDK/actual-desktop verification.
-Decisions 0012 and 0013 record native limits and current unified semantics;
-execution completion is distinct from exhaustive body coverage, which is never
-claimed. Header matches provide useful evidence without certifying body coverage.
+Warm targets remain p95 <= 1 second for indexed query execution and p95 <= 2
+seconds end-to-end on a declared representative corpus. Report cold startup
+separately and treat targets as goals until measured. Native archive queries do
+not currently meet the universal two-second target. Known historical gaps may
+ship as honestly reported partial coverage. See [STATUS.md](STATUS.md) for scoped
+results and [decisions 0012](decisions/0012-native-hybrid-mail-search.md) and
+[0013](decisions/0013-unified-mail-search.md) for native limits and semantics.
 
 ### Calendar
 
@@ -294,7 +272,7 @@ receipt/Sent state and attachment contents without promising exactly-once delive
 
 Normal CI contains no credentials and never reads the owner's apps. Marked live
 tests are separate, opt-in and accurately reported as passed/skipped/blocked.
-The finished README must contain tested install, recovery, index management,
+README must contain tested installation, recovery, index management,
 approval configuration and uninstall instructions. Update STATUS.md with measured
 capability evidence and pushed commits.
 
