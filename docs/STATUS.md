@@ -56,6 +56,17 @@ opened a compose window without an accessible new outgoing object and stopped
 before sending; its uncertain operation was not retried. Neither failed candidate
 is shipped. [Evidence and decision](decisions/0019-mail-scripted-body-formatting.md).
 
+A separately approved capability test on 27 October 2026 was observed in Sent
+and the recipient Inbox with the same RFC identity. Decoded subject/body samples
+preserved Unicode and URL query/fragment characters; HTML/Markdown remained
+literal and no hyperlink anchor was generated. Two received attachments (52-byte
+text and 256-byte binary) matched their approved bytes and SHA-256. The accented
+filename was canonically equivalent but decomposed; attachment placement split
+body HTML into multiple MIME fragments. Source and message reads both preserved
+the recipient's unread flag. The leading paragraph/quote wrapper remains, and
+recipient UI clickability was not tested. See the [capability matrix](MAIL_CAPABILITIES.md)
+for the distinction between payload fidelity, rendering and delivery evidence.
+
 ## Current limits
 
 - Scripted email bodies can arrive with a leading blank line and quote indentation
