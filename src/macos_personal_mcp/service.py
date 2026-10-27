@@ -177,7 +177,7 @@ READS = (
     ),
     Definition(
         "mail_prepare_send",
-        "Validate configured sender and exact addresses/attachment identities; PREVIEW ONLY, no consent or send. Body is Unicode plain text: no HTML/Markdown/RTF renderer, custom link labels or inline images. Supply full URLs; recipient-client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Up to 20 absolute regular-file attachments, 20,000,000 bytes each and 50,000,000 total; hashes bind reviewed bytes. These are input limits, not provider delivery limits. Mail controls attachment placement and may normalize Unicode filenames.",
+        "Validate configured sender and exact addresses/attachment identities; optional reply_to_message binds an exact original; identity is checked at dispatch. PREVIEW ONLY, no consent or send. Body is Unicode plain text: no HTML/Markdown/RTF renderer, custom link labels or inline images. Supply full URLs; recipient-client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Up to 20 absolute regular-file attachments, 20,000,000 bytes each and 50,000,000 total; hashes bind reviewed bytes. These are input limits, not provider delivery limits. Mail controls attachment placement and may normalize Unicode filenames.",
         MailSend,
         MailPreview,
         native=False,
@@ -205,7 +205,7 @@ SETUP = (
 WRITES = (
     Definition(
         "mail_send",
-        "External email with To/CC/BCC/attachments. Unicode plain-text body only; HTML/Markdown/RTF styling, custom link labels and inline images are unsupported. Supply full URLs; client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Attachments: up to 20 absolute regular files, 20,000,000 bytes each, 50,000,000 total; reviewed bytes are frozen before dispatch. Provider limits may be lower. Mail controls attachment placement and may normalize Unicode filenames. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Accepted means Mail accepted the command, not confirmed delivery, formatting or received attachment bytes. Verify Sent/receipt and decode recipient MIME when proof is needed. Never retry uncertain outcomes.",
+        "External email with explicit To/CC/BCC/attachments; optional reply_to_message uses Mail's native reply to an exact original and may update its read/replied flags. Subject alone does not establish RFC threading. Unicode plain-text body only; HTML/Markdown/RTF styling, custom link labels and inline images are unsupported. Supply full URLs; client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Attachments: up to 20 absolute regular files, 20,000,000 bytes each, 50,000,000 total; reviewed bytes are frozen before dispatch. Provider limits may be lower. Mail controls attachment placement and may normalize Unicode filenames. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Accepted means Mail accepted the command, not confirmed delivery, formatting or received attachment bytes. Verify Sent/receipt and decode recipient MIME when proof is needed. Never retry uncertain outcomes.",
         MailSend,
         SendOutcome,
         mutates=True,

@@ -109,6 +109,12 @@ contracts define the supported surfaces and their limits.
   Native draft readback does not establish delivered MIME formatting. The tested
   Mail version can add a leading empty paragraph and quote wrapper after readback;
   disclose this unresolved native limitation rather than weaken the body guard.
+  Optional `reply_to_message` selects an exact original by account, mailbox path,
+  local ID and expected RFC Message-ID. Use Mail's native reply command, retaining
+  explicit approved recipients/body and threading headers. Verify source identity
+  before and after reply creation; never infer linkage from `Re:` alone. Review
+  includes the target and potential original read/replied-flag updates. Ordinary
+  send digests and existing journal no-retry records remain compatible.
 - Publish Mail composition/attachment limits in tool descriptions and schemas,
   with a concise initialization summary and doctor capability entries. Unicode
   plain text is supported; HTML/Markdown/RTF rendering, custom anchor labels and
@@ -123,8 +129,9 @@ contracts define the supported surfaces and their limits.
   Targeted reads fail on an observed flag change without restoring it; concurrent
   native/client changes remain possible. Read/unread mutation is not implemented,
   regardless of send enablement; doctor must make this missing capability clear.
-- Reply/forward and attachment extraction are useful extensions, but not required
-  by the original feature list. Do not let them delay the required operations.
+- Native replies extend `mail_send`; forwarding and attachment extraction remain
+  unimplemented. Scripted new messages and replies can acquire an empty paragraph
+  and quote indentation from Mail after draft readback; this remains unresolved.
 
 ### Full-body search integrity
 

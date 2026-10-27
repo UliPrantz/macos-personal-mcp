@@ -35,6 +35,14 @@ def review_text(preview: WritePreview) -> str:
             f"Operation: {event.operation_id}\nPayload SHA-256: {preview.digest}"
         )
     payload = preview.payload
+    target = payload.reply_to_message
+    reply = (
+        f"Reply to exact message: {target.account_id} / {' / '.join(target.mailbox_path)}\n"
+        f"Local ID: {target.local_id}\nRFC Message-ID: {target.expected_message_id}\n"
+        "Mail may update the original message's read/replied flags.\n"
+        if target is not None
+        else ""
+    )
     attachments = (
         "\n".join(
             f"{item.path}\n  {item.bytes} bytes; SHA-256 {item.sha256}"
@@ -45,7 +53,7 @@ def review_text(preview: WritePreview) -> str:
     return (
         f"From: {payload.sender}\nTo: {', '.join(payload.to)}\n"
         f"CC: {', '.join(payload.cc) or '(none)'}\nBCC: {', '.join(payload.bcc) or '(none)'}\n"
-        f"Subject: {payload.subject}\n\nAttachments:\n{attachments}\n\n"
+        f"Subject: {payload.subject}\n{reply}\nAttachments:\n{attachments}\n\n"
         f"Message body ({len(payload.body)} characters):\n{payload.body}\n\n"
         f"End of message body.\nOperation: {payload.operation_id}\nPayload SHA-256: {preview.digest}"
     )

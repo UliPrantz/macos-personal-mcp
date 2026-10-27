@@ -9,7 +9,7 @@ Updated: 27 October 2026. Package version **0.3.4**.
 | Mail | Account/mailbox discovery, metadata listing, header and combined subject/sender/body search, exact message and RFC-source reads |
 | Calendar | EventKit calendar discovery, bounded event reads/search, recurring occurrence identities, optional selected-calendar creation and exact nonrecurring event opening |
 | Contacts | Read-only lookup and pagination on compatible hosts; the tested direct ChatGPT build is blocked as described below |
-| Writes | Optional Mail sending with attachments and Calendar creation; native human review by default, with explicit owner-controlled host delegation |
+| Writes | Optional Mail sending with attachments and exact native replies, plus Calendar creation; native human review by default, with explicit owner-controlled host delegation |
 | Permissions | Nonprompting doctor, explicit per-domain setup, host context and actionable errors |
 | Installation | Isolated installer, manual instructions and an agent installation prompt; 17 default tools, 20 with all optional executors enabled |
 
@@ -23,7 +23,7 @@ tool descriptions/input schemas, doctor and the [Mail capability matrix](MAIL_CA
 
 ## Verification
 
-**239 synthetic/protocol tests passed; three opt-in live tests were skipped.**
+**259 synthetic/protocol tests passed; three opt-in live tests were skipped.**
 Ruff format/check, strict Pyright, wheel build/inspection, installer shell syntax
 and all three JXA compilations passed. [CI](https://github.com/UliPrantz/macos-personal-mcp/actions/workflows/ci.yml)
 repeats these checks. SDK STDIO discovery covers both Contacts backends and
@@ -56,6 +56,14 @@ opened a compose window without an accessible new outgoing object and stopped
 before sending; its uncertain operation was not retried. Neither failed candidate
 is shipped. [Evidence and decision](decisions/0019-mail-scripted-body-formatting.md).
 
+An approved controlled native reply was observed in Sent and Yahoo Inbox with
+`In-Reply-To` and `References` pointing to the exact original message; the received
+body contained the approved text and reading the source preserved its unread flag.
+An earlier subject-only send grouped visually in Apple Mail but had neither header. Scripted-body MIME still
+has Mail's added empty paragraph and quote indentation; native reply support
+does not fix that formatting limitation. The one-trailing-space draft allowance
+and old-journal digests are preserved. [Reply decision](decisions/0020-exact-native-mail-replies.md).
+
 A separately approved capability test on 27 October 2026 was observed in Sent
 and the recipient Inbox with the same RFC identity. Decoded subject/body samples
 preserved Unicode and URL query/fragment characters; HTML/Markdown remained
@@ -69,9 +77,10 @@ for the distinction between payload fidelity, rendering and delivery evidence.
 
 ## Current limits
 
-- Scripted email bodies can arrive with a leading blank line and quote indentation
-  added by Mail after the draft-content check. This is unresolved; do not equate
-  synthetic body/guard tests with final delivered formatting.
+- Mail can add a leading blank line and quote wrapper to scripted new messages
+  and replies after draft readback. Sending acknowledgment does not prove final
+  MIME formatting or recipient receipt; the controlled native reply's headers
+  were checked in both Sent and received source, not inferred from its subject.
 
 - Large native-index searches are validated only on **macOS 26.5.2**, header 114
   and the observed LZ4 metadata profile. Unsupported formats fail explicitly;
