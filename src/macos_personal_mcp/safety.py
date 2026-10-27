@@ -14,6 +14,13 @@ from macos_personal_mcp.models import AwareDatetime, Calendar, Model, Text
 from macos_personal_mcp.process import NativeError
 
 
+class ReplyTarget(Model):
+    account_id: Text
+    mailbox_path: list[Text] = Field(min_length=1, max_length=20)
+    local_id: int = Field(gt=0)
+    expected_message_id: Text
+
+
 class MailSend(Model):
     operation_id: Annotated[str, Field(pattern=r"^[A-Za-z0-9_-]{8,80}$")]
     sender: Text
@@ -23,6 +30,7 @@ class MailSend(Model):
     subject: str = Field(max_length=998)
     body: str = Field(max_length=1_000_000)
     attachments: list[Text] = Field(default_factory=list, max_length=20)
+    reply_to_message: ReplyTarget | None = None
 
     @field_validator("subject")
     @classmethod
@@ -177,7 +185,8 @@ def preview_mail(payload: MailSend) -> MailPreview:
         raise NativeError("attachment_limit", "Total attachments exceed 50 MB")
     digest = hashlib.sha256(
         (
-            payload.model_dump_json() + "".join(item.model_dump_json() for item in identities)
+            payload.model_dump_json(exclude_none=True)
+            + "".join(item.model_dump_json() for item in identities)
         ).encode()
     ).hexdigest()
     return MailPreview(payload=payload, attachment_identities=identities, digest=digest)

@@ -169,6 +169,17 @@ storage. Private test evidence remains ignored under `.local/`.
 
 ## Approval and writes
 
+`mail_prepare_send` and `mail_send` accept optional `reply_to_message` with
+`account_id`, `mailbox_path`, `local_id`, and `expected_message_id`, copied from an
+exact message search/read. The default null creates a new message. A selected
+original is validated again at dispatch; stale selectors stop before sending.
+Native replies supply RFC threading headers. To/CC/BCC, sender, subject, body and
+attachments remain explicit reviewed inputs; inherited recipients are removed.
+Mail may update the original's read/replied flags as part of this write. This
+does not alter read-only tools' flag-preservation contract. The scripted-body
+leading paragraph/quote formatting limitation remains. See
+[the reply decision](decisions/0020-exact-native-mail-replies.md).
+
 OS access and per-action approval are separate. `doctor` reports actionable
 Calendar/Contacts states and observed host paths. The explicitly invoked
 `request_permissions` setup tool may show one native OS dialog even when source

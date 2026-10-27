@@ -177,7 +177,7 @@ READS = (
     ),
     Definition(
         "mail_prepare_send",
-        "Validate configured sender and exact addresses/attachment identities; PREVIEW ONLY, no consent or send.",
+        "Validate configured sender and exact addresses/attachment identities; optional reply_to_message binds an exact original. PREVIEW ONLY, no consent or send; original identity is checked at dispatch.",
         MailSend,
         MailPreview,
         native=False,
@@ -205,7 +205,7 @@ SETUP = (
 WRITES = (
     Definition(
         "mail_send",
-        "External email with To/CC/BCC/attachments. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Never retry uncertain outcomes.",
+        "External email with explicit To/CC/BCC/attachments; optional reply_to_message uses Mail's native reply to an exact original and may update its read/replied flags. Subject alone does not establish RFC threading. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Never retry uncertain outcomes.",
         MailSend,
         SendOutcome,
         mutates=True,

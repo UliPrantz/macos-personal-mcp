@@ -151,6 +151,10 @@ leading blank line and quote indentation, even when draft readback matches the
 reviewed text. Sending still works; the native formatting problem remains
 unresolved. [Investigation and rejected workarounds](docs/decisions/0019-mail-scripted-body-formatting.md).
 
+Emails can reply to an exact original message with Mail's native threading.
+Recipients and body stay explicit for review; `Re:` alone only suggests grouping
+to the recipient's client. [Reply behavior and limits](docs/decisions/0020-exact-native-mail-replies.md).
+
 </details>
 
 ## 🎯 What to expect today

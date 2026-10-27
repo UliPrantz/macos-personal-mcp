@@ -49,7 +49,7 @@ class SendOutcome(Model):
 
 class Acceptance(Model):
     accepted: bool
-    failure_code: Literal["native_message_changed"] | None = None
+    failure_code: Literal["native_message_changed", "native_reply_identity"] | None = None
 
 
 class Reviewer(Protocol):
@@ -296,6 +296,12 @@ class MailExecutor:
                 detail = (
                     "Mail created a draft but its fields differed from the reviewed payload; "
                     "the send command was not called. Inspect the draft before any further action."
+                )
+            elif error.code == "native_reply_identity":
+                detail = (
+                    "The exact original message did not match the reviewed reply target; "
+                    "the send command was not called. A reply draft may remain. Search again "
+                    "and inspect drafts before any further action."
                 )
             else:
                 detail = (
