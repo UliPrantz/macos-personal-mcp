@@ -181,3 +181,45 @@ would hide uncertainty, not solve compatibility.
 This review changes documentation and records findings. It does not switch the
 runtime backend, add a watcher/daemon, alter approval settings or claim that the
 proposed optimizations have shipped.
+
+## Sending and body formatting follow-up
+
+Source review on 27 October 2026 focused on the leading blank paragraph and quote
+wrapper, rather than search performance. These are inspected implementations,
+not competitor installations or independently reproduced delivery claims.
+
+| Project / revision | Composition route found | Implication for our blank-line problem |
+| --- | --- | --- |
+| [Sweetrb `28f13e5`](https://github.com/sweetrb/apple-mail-mcp/blob/28f13e527de69ce30ddbc742b35b90dd1344f2f9/src/services/appleMailManager.ts#L4182) | Explicitly documents the wrapper bug; offers direct SMTP to submit clean MIME | A documented workaround that needs separate provider credentials/connection; its AppleScript route retains the limitation |
+| [Cupertino `cf7ad84`](https://github.com/mgcrea/cupertino/blob/cf7ad84abb071691da0e30333b1552b1897a8a54/docs/mail-compose.md#L64) | Clipboard and Accessibility composition; avoids assigning content, including empty content and scripted attachment insertion | Documents that user-created composers are absent from `outgoingMessages()`; its clean route requires UI automation |
+| [Patrick Freyer `419e8c1`](https://github.com/patrickfreyer/apple-mail-mcp/blob/419e8c16073d17a46350544df82534e2a9dd7a3e/plugin/apple_mail_mcp/tools/compose.py#L400) | Rich-body clipboard injection and System Events focus/paste/send | Can preserve rendered rich text through the editor, with UI permissions/focus/clipboard trade-offs; no guarded native-only fix established |
+| [Agentic Assets `3695be8`](https://github.com/Agentic-Assets/apple-mail-mcp/blob/3695be8b0f19e1f779e3078aa0bcbf4d51c196dc/plugin/apple_mail_mcp/tools/compose/send.py#L139) | Focus-verified HTML paste; native replies use guarded chunked System Events typing | Substantial editor verification, still a UI automation route |
+| [Tamm `2372002`](https://github.com/tamm/mcp-apple-mail/blob/23720029b1e346051f2e330dce8913cd91bee14d/index.js#L1271) | New drafts set typed RTF content; replies paste RTF through the GUI; intentionally no sending tool | A draft-composition reference, not evidence of clean automatic delivery |
+| [MP Consulting `4255bef`](https://github.com/mp-consulting/apple-mail-mcp/blob/4255bef5da220bcad96f4a0a3ea2df98856b4972/Sources/MailAutomation/MailAutomation.swift#L393) | Direct public Apple Events; plain bodies use strings, optional HTML becomes an RTF descriptor | A distinct native candidate worth testing; rich-text support alone does not establish removal of the wrapper or matching readback |
+| [Supermemory `08e2c53`](https://github.com/supermemoryai/apple-mcp/blob/08e2c5315683c00fc9567dfefd70a477caccc60d/utils/mail.ts#L298) | Standard `make new outgoing message` with string content | Uses the same general creation pattern that reproduced the issue here; no formatting workaround in that send path |
+| [Imdinu `5d7df2d`](https://github.com/imdinu/apple-mail-mcp/blob/5d7df2dea5a8447d02f4c35b583ef180cb9229dd/src/apple_mail_mcp/server.py) | Read/search/index-focused reviewed toolset | No send/composer solution found in the inspected tool definitions |
+
+The original reporter's [mailto workaround](https://forums.macrumors.com/threads/applescript-creating-a-new-message-in-mail-app-is-causing-weird-formatting-issues.2385052/)
+can populate a compose window without the string-content template. In our controlled
+candidate, however, that window had no new public outgoing-message handle. We could
+not safely verify its sender, attach frozen files and send through that interface.
+Changing assignment order also failed a delivered test. The suggested constructor
+change in [this report](https://apple.stackexchange.com/questions/465358/how-to-send-an-email-with-applescript-without-the-text-being-put-in-a-blockquot)
+is explicitly disputed by its original author and is not a demonstrated fix.
+
+The MP Consulting implementation motivated an independently written public typed
+Apple Event experiment. Mail accepted RTF content, but a revised AppKit-encoded
+candidate exposed added paragraph separators and a final newline; our content
+check stopped before sending. Thus no clean delivered MIME or attachment result
+was established through RTF. See [the local evidence decision](decisions/0019-mail-scripted-body-formatting.md).
+
+Direct SMTP and verified editor composition are credible alternative designs;
+neither is within this repository's current no-provider/no-UI contract. They require
+an explicit scope change, not a silent fallback. We have not established that
+every possible public native workaround is impossible, only that these tested
+candidates do not yet satisfy the guarded send contract.
+
+Other useful feature references: Sweetrb exposes mark-read/unread and thread reads;
+Mail's public scripting dictionary has writable `read status`. A bounded exact-ID
+read-state write could be a separate feature, with explicit enablement and readback.
+Ordinary reads should continue preserving flags. This review does not add that tool.

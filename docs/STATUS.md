@@ -17,6 +17,9 @@ One canonical `mail_search` reuses native Mail storage and Apple's index without
 building a second body database. Legacy FTS is hidden unless explicitly enabled
 and maintained; it is never silently substituted. Contacts creation, editing and
 deletion, Calendar invitations and semantic search are not implemented.
+Mail read/unread status is readable/filterable; changing it is not implemented.
+Composition, attachments and delivery limits are published in MCP initialization,
+tool descriptions/input schemas, doctor and the [Mail capability matrix](MAIL_CAPABILITIES.md).
 
 ## Verification
 

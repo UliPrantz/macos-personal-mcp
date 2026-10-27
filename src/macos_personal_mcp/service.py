@@ -123,13 +123,13 @@ READS = (
     ),
     Definition(
         "mail_get_message",
-        "Read a bounded body and headers after validating expected RFC Message-ID; observe flags.",
+        "Read a bounded body and headers after validating expected RFC Message-ID; body_truncated reports omitted text. Attachments are metadata only (name/ID/approximate bytes), not downloaded files. Reports read_before/read_after; fails on an observed state change and never restores flags. No mark-read/unread tool is implemented.",
         MessageKey,
         Message,
     ),
     Definition(
         "mail_get_source",
-        "Read complete bounded raw RFC/MIME source after identity validation; reject unavailable/oversized sources, preserve flags.",
+        "Read complete bounded raw RFC/MIME source after identity validation; reject unavailable/oversized sources. Decode MIME charset/transfer encoding before comparing text or attachment bytes; source is not rendered HTML or an attachment-download tool. Reports read_before/read_after; fails on an observed state change and never restores flags. No mark-read/unread tool is implemented.",
         SourceKey,
         MessageSource,
     ),
@@ -177,7 +177,7 @@ READS = (
     ),
     Definition(
         "mail_prepare_send",
-        "Validate configured sender and exact addresses/attachment identities; optional reply_to_message binds an exact original. PREVIEW ONLY, no consent or send; original identity is checked at dispatch.",
+        "Validate configured sender and exact addresses/attachment identities; optional reply_to_message binds an exact original; identity is checked at dispatch. PREVIEW ONLY, no consent or send. Body is Unicode plain text: no HTML/Markdown/RTF renderer, custom link labels or inline images. Supply full URLs; recipient-client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Up to 20 absolute regular-file attachments, 20,000,000 bytes each and 50,000,000 total; hashes bind reviewed bytes. These are input limits, not provider delivery limits.",
         MailSend,
         MailPreview,
         native=False,
@@ -205,7 +205,7 @@ SETUP = (
 WRITES = (
     Definition(
         "mail_send",
-        "External email with explicit To/CC/BCC/attachments; optional reply_to_message uses Mail's native reply to an exact original and may update its read/replied flags. Subject alone does not establish RFC threading. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Never retry uncertain outcomes.",
+        "External email with explicit To/CC/BCC/attachments; optional reply_to_message uses Mail's native reply to an exact original and may update its read/replied flags. Subject alone does not establish RFC threading. Unicode plain-text body only; HTML/Markdown/RTF styling, custom link labels and inline images are unsupported. Supply full URLs; client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Attachments: up to 20 absolute regular files, 20,000,000 bytes each, 50,000,000 total; reviewed bytes are frozen before dispatch. Provider limits may be lower. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Accepted means Mail accepted the command, not confirmed delivery, formatting or received attachment bytes. Verify Sent/receipt and decode recipient MIME when proof is needed. Never retry uncertain outcomes.",
         MailSend,
         SendOutcome,
         mutates=True,
@@ -505,6 +505,16 @@ class Service:
                     detail="Native executor and durable journal enabled; server approval follows local startup policy; delivery still needs verification"
                     if self.mail_executor is not None and not self.read_only
                     else "Mail execution disabled in this launch mode; exact human review is required when enabled",
+                ),
+                Capability(
+                    capability="email_composition",
+                    state="unverified",
+                    detail="Unicode plain-text input; no HTML/Markdown/RTF renderer, custom link labels or inline images. Full URL text is supported; recipient-client linking is not guaranteed. Mail can add a leading blank paragraph and quote wrapper after draft checks. Attachments: <=20 absolute regular files, <=20,000,000 bytes each and <=50,000,000 total; provider limits may be lower. Accepted sends do not verify delivery, final formatting or received attachment bytes. See docs/MAIL_CAPABILITIES.md for scoped evidence, not a guarantee for this host.",
+                ),
+                Capability(
+                    capability="email_read_state_write",
+                    state="blocked",
+                    detail="No mark-read or mark-unread tool is implemented, regardless of send enablement. Reads report/filter read state without setting it; targeted reads fail on an observed change and never restore flags. Native API feasibility is not an exposed MCP capability.",
                 ),
                 Capability(
                     capability="invitations",

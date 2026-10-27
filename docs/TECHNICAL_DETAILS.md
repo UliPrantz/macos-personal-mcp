@@ -41,6 +41,12 @@ resolution or network download is needed when the MCP normally starts.
 - Mail preparation: exact configured sender, literal To/CC/BCC, content and local
   regular-file attachment hashes. A preview is never permission to send.
 
+[Mail capabilities for agents](MAIL_CAPABILITIES.md) separates Unicode plain-text
+input, URL/formatting limits, attachment handling, delivery evidence and read-state
+behavior. The same operational limits appear in MCP initialization, relevant tool
+descriptions/schemas and doctor. There is no mark-read/unread tool; enabling sends
+does not enable other Mail mutations.
+
 Mail account/header/targeted API reads use public Apple Events through a fixed
 bundled script; native body search reads the local catalogue, MIME and Spotlight
 formats. Calendar/Contacts

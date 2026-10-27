@@ -155,6 +155,11 @@ Emails can reply to an exact original message with Mail's native threading.
 Recipients and body stay explicit for review; `Re:` alone only suggests grouping
 to the recipient's client. [Reply behavior and limits](docs/decisions/0020-exact-native-mail-replies.md).
 
+Bodies accept Unicode plain text, with full URLs; rich HTML/Markdown formatting
+is not supported. Attachments use local files, within size/count limits. Mail
+read/unread status can be inspected and filtered, but there is no tool to change
+it. [Verified Mail capabilities and limits for agents](docs/MAIL_CAPABILITIES.md).
+
 </details>
 
 ## 🎯 What to expect today
