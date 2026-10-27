@@ -64,6 +64,17 @@ has Mail's added empty paragraph and quote indentation; native reply support
 does not fix that formatting limitation. The one-trailing-space draft allowance
 and old-journal digests are preserved. [Reply decision](decisions/0020-exact-native-mail-replies.md).
 
+A separately approved capability test on 27 October 2026 was observed in Sent
+and the recipient Inbox with the same RFC identity. Decoded subject/body samples
+preserved Unicode and URL query/fragment characters; HTML/Markdown remained
+literal and no hyperlink anchor was generated. Two received attachments (52-byte
+text and 256-byte binary) matched their approved bytes and SHA-256. The accented
+filename was canonically equivalent but decomposed; attachment placement split
+body HTML into multiple MIME fragments. Source and message reads both preserved
+the recipient's unread flag. The leading paragraph/quote wrapper remains, and
+recipient UI clickability was not tested. See the [capability matrix](MAIL_CAPABILITIES.md)
+for the distinction between payload fidelity, rendering and delivery evidence.
+
 ## Current limits
 
 - Mail can add a leading blank line and quote wrapper to scripted new messages
