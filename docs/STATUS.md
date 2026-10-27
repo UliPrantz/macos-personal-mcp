@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 25 October 2026. Package version **0.3.4**.
+Updated: 27 October 2026. Package version **0.3.4**.
 
 ## Capabilities
 
@@ -20,7 +20,7 @@ deletion, Calendar invitations and semantic search are not implemented.
 
 ## Verification
 
-**238 synthetic/protocol tests passed; three opt-in live tests were skipped.**
+**239 synthetic/protocol tests passed; three opt-in live tests were skipped.**
 Ruff format/check, strict Pyright, wheel build/inspection, installer shell syntax
 and all three JXA compilations passed. [CI](https://github.com/UliPrantz/macos-personal-mcp/actions/workflows/ci.yml)
 repeats these checks. SDK STDIO discovery covers both Contacts backends and
@@ -45,10 +45,19 @@ An isolated installation in a checkout path containing spaces also passed,
 including locked dependencies, generated configuration and SDK startup from an
 unrelated working directory. This is not proof on every Mac or of a first-time
 permission dialog under every host. No exactly-once email delivery is claimed.
-The Mail draft whitespace fix passed synthetic replay; a fresh controlled live
-send through that revised path has not been demonstrated.
+The existing one-trailing-space draft guard was exercised by approved native
+self-sends observed in Sent and at the recipient. Separately, delivered MIME
+confirmed Mail adds a leading empty paragraph and quote wrapper to scripted
+bodies. Changing content assignment order did not fix that. A mailto candidate
+opened a compose window without an accessible new outgoing object and stopped
+before sending; its uncertain operation was not retried. Neither failed candidate
+is shipped. [Evidence and decision](decisions/0019-mail-scripted-body-formatting.md).
 
 ## Current limits
+
+- Scripted email bodies can arrive with a leading blank line and quote indentation
+  added by Mail after the draft-content check. This is unresolved; do not equate
+  synthetic body/guard tests with final delivered formatting.
 
 - Large native-index searches are validated only on **macOS 26.5.2**, header 114
   and the observed LZ4 metadata profile. Unsupported formats fail explicitly;

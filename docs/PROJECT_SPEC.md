@@ -106,6 +106,9 @@ contracts define the supported surfaces and their limits.
   rejecting other content changes. Draft verification failures must explain that
   sending was not attempted; retain a safe diagnostic code without weakening
   the durable no-blind-retry barrier or logging/storing message payloads.
+  Native draft readback does not establish delivered MIME formatting. The tested
+  Mail version can add a leading empty paragraph and quote wrapper after readback;
+  disclose this unresolved native limitation rather than weaken the body guard.
 - Preserve read/unread flags during reads. Reading may fetch a remote body;
   expose unavailable, encrypted or slow bodies as such. Do not claim they were
   searched when they were not. Metadata operations should avoid body reads.
