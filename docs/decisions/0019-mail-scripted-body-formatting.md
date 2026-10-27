@@ -44,3 +44,24 @@ message IDs, native exports and operation records remain outside Git.
 The observed behavior matches the original reporter's
 [Mail scripting reproduction](https://forums.macrumors.com/threads/applescript-creating-a-new-message-in-mail-app-is-causing-weird-formatting-issues.2385052/).
 That report's mailto suggestion is not sufficient for this MCP's guarded sender.
+
+## Follow-up: other MCPs and typed rich text
+
+The broader [source comparison](../MAIL_MCP_COMPARISON.md#sending-and-body-formatting-follow-up)
+found direct SMTP, clipboard/Accessibility composition, and typed RTF Apple Events.
+The last is a public native route, so it warranted a controlled candidate rather
+than being dismissed because it uses a different bridge.
+
+Two separately approved RTF candidates created drafts without sending. The first
+stopped in candidate response handling; inspection also showed changed paragraph
+readback. A revised candidate used AppKit's canonical RTF encoding and corrected
+the response check. Mail accepted the body assignment, but the exposed content
+inserted U+2028 in blank paragraphs and added a final newline. The exact content
+guard rejected it before send. No operation was retried or draft deleted.
+
+This does not prove typed RTF can never produce a clean message. It does mean we
+have not demonstrated an end-to-end safe formatting fix: draft assignment, matching
+visible text, delivered MIME and attachments must all agree. Do not claim a
+competitor's rich-text feature proves delivered formatting on this host, normalize
+away arbitrary body changes, or replace working ordinary sends with these drafts.
+None of the experimental RTF code or expanded candidate allowances is shipped.
