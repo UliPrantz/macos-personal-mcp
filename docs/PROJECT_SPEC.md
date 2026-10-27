@@ -109,9 +109,20 @@ contracts define the supported surfaces and their limits.
   Native draft readback does not establish delivered MIME formatting. The tested
   Mail version can add a leading empty paragraph and quote wrapper after readback;
   disclose this unresolved native limitation rather than weaken the body guard.
+- Publish Mail composition/attachment limits in tool descriptions and schemas,
+  with a concise initialization summary and doctor capability entries. Unicode
+  plain text is supported; HTML/Markdown/RTF rendering, custom anchor labels and
+  inline images are not. Full URL text is not a guarantee of client-side linking.
+  Attachment limits are 20 files, 20,000,000 bytes each and 50,000,000 total;
+  provider limits may be lower. Separate accepted commands from delivered MIME
+  and attachment-byte verification. Keep scoped evidence in
+  [MAIL_CAPABILITIES.md](MAIL_CAPABILITIES.md).
 - Preserve read/unread flags during reads. Reading may fetch a remote body;
   expose unavailable, encrypted or slow bodies as such. Do not claim they were
   searched when they were not. Metadata operations should avoid body reads.
+  Targeted reads fail on an observed flag change without restoring it; concurrent
+  native/client changes remain possible. Read/unread mutation is not implemented,
+  regardless of send enablement; doctor must make this missing capability clear.
 - Reply/forward and attachment extraction are useful extensions, but not required
   by the original feature list. Do not let them delay the required operations.
 
