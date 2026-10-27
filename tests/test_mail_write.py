@@ -35,7 +35,7 @@ async def dispatch_fixture(scenario: str) -> dict[str, JsonValue]:
     return result
 
 
-async def test_fixed_writer_preserves_literal_body_all_recipients_and_attachments() -> None:
+async def test_writer_verifies_native_draft_body_all_recipients_and_attachments() -> None:
     result = await dispatch_fixture("normal")
     assert result["result"] == {"accepted": True}
     assert result["counters"] == {"drafts": 1, "sends": 1}
@@ -64,7 +64,7 @@ async def test_native_single_appended_space_can_send_reviewed_body() -> None:
     assert result["counters"] == {"drafts": 1, "sends": 1}
 
 
-@pytest.mark.parametrize("scenario", ["two-spaces", "trailing-newline"])
+@pytest.mark.parametrize("scenario", ["two-spaces", "trailing-newline", "leading-newline"])
 async def test_other_whitespace_changes_do_not_pass_review(scenario: str) -> None:
     result = await dispatch_fixture(scenario)
     assert result["result"] == {"accepted": False, "failure_code": "native_message_changed"}

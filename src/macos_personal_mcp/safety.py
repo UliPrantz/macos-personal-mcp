@@ -21,8 +21,15 @@ class MailSend(Model):
     cc: list[Text] = Field(default_factory=list, max_length=100)
     bcc: list[Text] = Field(default_factory=list, max_length=100)
     subject: str = Field(max_length=998)
-    body: str = Field(max_length=1_000_000)
-    attachments: list[Text] = Field(default_factory=list, max_length=20)
+    body: str = Field(
+        max_length=1_000_000,
+        description="Unicode plain text, not HTML/Markdown/RTF. Use full URLs; link rendering and exact delivered layout are not controlled by this MCP.",
+    )
+    attachments: list[Text] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Absolute readable regular-file paths, not URLs; at most 20,000,000 bytes each and 50,000,000 total. Reviewed files are hashed and frozen; provider delivery limits may be lower.",
+    )
 
     @field_validator("subject")
     @classmethod

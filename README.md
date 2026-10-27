@@ -146,6 +146,16 @@ confirmation by default. You can also deliberately delegate approval handling
 to your AI app through [approval configuration](docs/TECHNICAL_DETAILS.md#approval-and-writes).
 Calendar invitations and adding attendees are not supported.
 
+**Known Mail formatting limitation:** scripted bodies can arrive with an extra
+leading blank line and quote indentation, even when draft readback matches the
+reviewed text. Sending still works; the native formatting problem remains
+unresolved. [Investigation and rejected workarounds](docs/decisions/0019-mail-scripted-body-formatting.md).
+
+Bodies accept Unicode plain text, with full URLs; rich HTML/Markdown formatting
+is not supported. Attachments use local files, within size/count limits. Mail
+read/unread status can be inspected and filtered, but there is no tool to change
+it. [Verified Mail capabilities and limits for agents](docs/MAIL_CAPABILITIES.md).
+
 </details>
 
 ## 🎯 What to expect today

@@ -18,7 +18,7 @@ const app={
             'two-spaces':'  ',
             'trailing-newline':'\n'
         }[scenario]||'';
-        const content=()=>data.content+suffix;
+        const content=()=>(scenario==='leading-newline'?'\n':'')+data.content+suffix;
         content.attachments={push:x=>{captured.attachments.push(x.fileName);}};
         captured={...data,to:[],cc:[],bcc:[],attachments:[]};
         const to=recipients(),cc=recipients(),bcc=recipients();
