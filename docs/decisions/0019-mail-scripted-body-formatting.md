@@ -65,3 +65,19 @@ visible text, delivered MIME and attachments must all agree. Do not claim a
 competitor's rich-text feature proves delivered formatting on this host, normalize
 away arbitrary body changes, or replace working ordinary sends with these drafts.
 None of the experimental RTF code or expanded candidate allowances is shipped.
+
+## Follow-up: iMCP opens a composer through mailto
+
+On 8 November 2026 the owner reported a clean composer opened by iMCP. Its
+reviewed `mail_compose` implementation uses a percent-encoded `mailto:` URL and
+`NSWorkspace.shared.open`, with no scripted content assignment. Existing body
+line breaks become CRLF; no leading newline is introduced by its URL builder.
+See the [source and test comparison](../MAIL_MCP_COMPARISON.md#imcp-composer-comparison-8-november-2026).
+
+This establishes an available public route for an open-composer feature. The
+earlier mailto candidate failed our automatic-send requirements, not the ability
+to open a composer. iMCP supplies no sender selector, attachments, reply linkage
+or automatic send, so its implementation does not resolve those missing guards.
+This source review adds no runtime change, independent live test or delivery
+claim. A clean automatic-send replacement still needs exact-payload approval
+and end-to-end sender, body, threading and attachment verification as applicable.

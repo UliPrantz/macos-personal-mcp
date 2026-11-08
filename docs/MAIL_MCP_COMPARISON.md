@@ -190,6 +190,7 @@ not competitor installations or independently reproduced delivery claims.
 
 | Project / revision | Composition route found | Implication for our blank-line problem |
 | --- | --- | --- |
+| [iMCP `c30e84c`](https://github.com/mattt/iMCP/blob/c30e84cef24e2554ba5e128b1b8280e09586d5b4/App/Services/Mail.swift#L596-L650), reviewed 8 November 2026 | Percent-encoded `mailto:` opened with `NSWorkspace.shared.open`; no scripted body assignment | Supports opening a composer without our scripted creation path; no sender selector, attachments, automatic save/send or outgoing-message handle |
 | [Sweetrb `28f13e5`](https://github.com/sweetrb/apple-mail-mcp/blob/28f13e527de69ce30ddbc742b35b90dd1344f2f9/src/services/appleMailManager.ts#L4182) | Explicitly documents the wrapper bug; offers direct SMTP to submit clean MIME | A documented workaround that needs separate provider credentials/connection; its AppleScript route retains the limitation |
 | [Cupertino `cf7ad84`](https://github.com/mgcrea/cupertino/blob/cf7ad84abb071691da0e30333b1552b1897a8a54/docs/mail-compose.md#L64) | Clipboard and Accessibility composition; avoids assigning content, including empty content and scripted attachment insertion | Documents that user-created composers are absent from `outgoingMessages()`; its clean route requires UI automation |
 | [Patrick Freyer `419e8c1`](https://github.com/patrickfreyer/apple-mail-mcp/blob/419e8c16073d17a46350544df82534e2a9dd7a3e/plugin/apple_mail_mcp/tools/compose.py#L400) | Rich-body clipboard injection and System Events focus/paste/send | Can preserve rendered rich text through the editor, with UI permissions/focus/clipboard trade-offs; no guarded native-only fix established |
@@ -223,3 +224,31 @@ Other useful feature references: Sweetrb exposes mark-read/unread and thread rea
 Mail's public scripting dictionary has writable `read status`. A bounded exact-ID
 read-state write could be a separate feature, with explicit enablement and readback.
 Ordinary reads should continue preserving flags. This review does not add that tool.
+
+### iMCP composer comparison, 8 November 2026
+
+The owner reported that iMCP opened an Apple Mail composer without our leading
+blank line. Source review identifies the different route: `mail_compose` builds a
+`mailto:` URL and passes it to `NSWorkspace.shared.open`. It encodes each field
+using RFC 3986 unreserved characters and converts existing body line breaks to
+CRLF. It neither prepends a newline nor assigns Mail's scripted `content`.
+Our `mail_write.js` instead creates an `OutgoingMessage` with string content
+(or assigns the content of a native reply), then verifies fields before sending.
+Avoiding that scripting path is consistent with the reported clean composer;
+this review did not independently repeat the visual or delivered-MIME test.
+
+iMCP's [composition test](https://github.com/mattt/iMCP/blob/c30e84cef24e2554ba5e128b1b8280e09586d5b4/Tests/imcp-serverTests/MailTests.swift#L42-L68)
+checks URL encoding, rejection of recipient/subject line breaks, and opener
+acceptance/failure with a stub. It does not test Mail rendering or delivery.
+The tool accepts To/CC/BCC, subject and body, but no sender, attachment, reply
+identity or send instruction. Its response explicitly promises only that the
+compose URL opened, not that a message was saved or sent.
+
+An equivalent open-composer feature is feasible through the same public native
+route without reverse engineering, UI automation or a provider connection. It
+would leave final sender selection, attachment handling and sending to the user.
+It is not an established replacement for guarded `mail_send`: the prior local
+mailto experiment did not expose a new public outgoing-message object, and the
+installed Mail scripting dictionary declares no result object for `mailto` or
+`GetURL`. Clean automatic sending through this route remains unverified. No
+new composer tool or change to the send path is shipped by this comparison.

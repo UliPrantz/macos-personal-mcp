@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 27 October 2026. Package version **0.3.4**.
+Updated: 8 November 2026. Package version **0.3.4**.
 
 ## Capabilities
 
@@ -55,6 +55,15 @@ bodies. Changing content assignment order did not fix that. A mailto candidate
 opened a compose window without an accessible new outgoing object and stopped
 before sending; its uncertain operation was not retried. Neither failed candidate
 is shipped. [Evidence and decision](decisions/0019-mail-scripted-body-formatting.md).
+
+On 8 November 2026, source review of iMCP `c30e84c` explained the owner's reported
+clean composer: its tool opens a percent-encoded `mailto:` URL through
+`NSWorkspace.shared.open`, avoiding scripted body assignment. That route can be
+used for a human-finished composer, but iMCP provides no sender selector,
+attachments or automatic send. Its composition tests cover URL construction and
+a stub opener, not Mail rendering or delivery. No new live composition/send test
+or runtime change was made in this review; automatic-send formatting remains
+unresolved. [Comparison](MAIL_MCP_COMPARISON.md#imcp-composer-comparison-8-november-2026).
 
 An approved controlled native reply was observed in Sent and Yahoo Inbox with
 `In-Reply-To` and `References` pointing to the exact original message; the received
