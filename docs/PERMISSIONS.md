@@ -164,7 +164,8 @@ error messages while an old server still lacks `request_permissions`.
 Restart the existing `macos-personal` entry in ChatGPT's MCP settings. If an
 existing conversation retains the old catalog, use a fresh local chat with that
 same registration. No new clone or duplicate server is needed. A freshly launched
-guarded server exposes 20 tools; read-only startup exposes 17. Confirm
+guarded server exposes 21 tools; read-only startup exposes 17. Composer execution
+requires `--enable-mail-compose`, independently of sending. Confirm
 `doctor.server_version` matches the installed package and that `host`,
 `next_actions` and the setup tool are available. A missing `server_version` is an
 older loaded doctor contract.

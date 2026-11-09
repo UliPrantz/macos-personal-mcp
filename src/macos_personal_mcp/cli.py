@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from macos_personal_mcp.calendar_open import NativeCalendarOpener
 from macos_personal_mcp.calendar_writes import native_calendar_executor
+from macos_personal_mcp.mail_compose import NativeMailComposer
 from macos_personal_mcp.models import ContactsBackend, Failure, IndexRequest, MailScope
 from macos_personal_mcp.native import NativeBridge
 from macos_personal_mcp.permissions import load_config
@@ -49,6 +50,11 @@ def main() -> None:
         help="Expose blocked write schemas; does not authorize execution",
     )
     parser.add_argument(
+        "--enable-mail-compose",
+        action="store_true",
+        help="Enable opening a mailto composer in the default email app; never saves or sends",
+    )
+    parser.add_argument(
         "--enable-mail-send",
         action="store_true",
         help="Enable native Mail sending; local startup policy chooses native or host approval",
@@ -79,7 +85,10 @@ def main() -> None:
         "contacts-app" if args.contacts_backend == "contacts-app" else "framework"
     )
     if args.read_only and (
-        args.enable_mail_send or args.enable_calendar_create or args.enable_calendar_open
+        args.enable_mail_compose
+        or args.enable_mail_send
+        or args.enable_calendar_create
+        or args.enable_calendar_open
     ):
         parser.error("--read-only cannot be combined with a native write executor")
     os.environ.pop("OPENAI_API_KEY", None)
@@ -90,6 +99,7 @@ def main() -> None:
         service = Service(
             read_only=not (
                 args.enable_writes
+                or args.enable_mail_compose
                 or args.enable_mail_send
                 or args.enable_calendar_create
                 or args.enable_calendar_open
@@ -105,6 +115,7 @@ def main() -> None:
             if args.enable_calendar_create
             else None,
             calendar_opener=NativeCalendarOpener(bridge) if args.enable_calendar_open else None,
+            mail_composer=NativeMailComposer() if args.enable_mail_compose else None,
             approval_config=config,
             contacts_backend=contacts_backend,
         )

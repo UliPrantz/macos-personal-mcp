@@ -133,10 +133,18 @@ Read-only is the default. If you want writes, change the server arguments to:
 serve --enable-mail-send --enable-calendar-create --enable-calendar-open
 ```
 
-Restart that connection. This exposes 20 tools. Sends and event creation use
+Restart that connection. This exposes 21 tools, including the disabled composer
+schema; add `--enable-mail-compose` to enable that separate UI action. Sends and event creation use
 independent native human confirmation by default. [Approval configuration](docs/TECHNICAL_DETAILS.md#approval-and-writes)
 explains deliberate host/model delegation. The installer does not opt you into it.
 Calendar invitations/attendee creation are outside this native-only version.
+
+To open prefilled email composers without automatic sending or calendar writes,
+use `serve --enable-mail-compose` instead. Do not combine it with `--read-only`.
+The `mail_compose` tool opens the default email app through `mailto:`; you choose
+the sender, attachments and whether to send. It does not save or send a message,
+though the email app may autosave. It needs no Mail data or Automation grant.
+[Composer example and limits](docs/USAGE.md#open-an-email-composer).
 
 ## Updating
 

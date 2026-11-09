@@ -81,3 +81,28 @@ recipient/calendar/payload before approving. The owner can deliberately delegate
 server approval through local configuration. Calendar invitations are excluded.
 See [installation](../INSTALL.md#enable-sending-or-calendar-creation) and the
 [approval policy](TECHNICAL_DETAILS.md#approval-and-writes).
+
+## Open an email composer
+
+With `--enable-mail-compose` enabled and the connection restarted, ask the model
+to call `mail_compose`, for example:
+
+```json
+{"to":["alex@example.com"],"subject":"Tomorrow's meeting","body":"Hi Alex,\n\nShall we meet at 10?\n\nBest"}
+```
+
+To/CC/BCC are optional arrays of literal addresses; subject and body are optional
+plain text. Omitting every field opens a blank composer. The default email app
+opens through `mailto:`. The MCP does not assign Mail's scripted body, save or
+send a message. Choose the sender, add attachments and finish there. Your email
+app may autosave; `open_acknowledged=true` does not prove saved-draft persistence
+or exact rendered content. If an open times out, check the app before retrying
+to avoid duplicate composers.
+
+Limits: 100 recipients per field, 998 subject characters, 50,000 body characters,
+and 64,000 ASCII characters for the complete percent-encoded URL. Unicode expands
+when encoded, so the URL bound can reject a body below its character limit.
+Unknown fields, including sender, attachments and send, are rejected. Existing
+CR/LF breaks become CRLF; intentional leading blank lines are preserved. There is
+no HTML/Markdown renderer or native reply threading. This feature is separate
+from `mail_send` and does not fix that tool's delivered-formatting limitation.

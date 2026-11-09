@@ -8,6 +8,22 @@ features. Do not infer deployed capabilities from an unmerged pull request.
 
 ## Compose and send
 
+`mail_compose` is a separate optional open-composer tool, enabled by
+`--enable-mail-compose` outside read-only mode. It accepts optional literal
+To/CC/BCC arrays, subject and plain body, and opens the default email app via
+`mailto:`. Choose the sender, attachments and whether to send there; the MCP
+does not save or send, though the app may autosave. Limits are 100 recipients per
+field, 998 subject characters, 50,000 body characters and 64,000 characters for
+the encoded URL. Existing CR/LF becomes CRLF, with no added leading newline.
+The 9 November 2026 SDK/visual check opened an Apple Mail composer without an
+extra leading blank paragraph and displayed the sampled Unicode/URL text.
+That does not establish saved-draft persistence, native reply threading or
+delivered MIME. An uncertain open may already have created UI; inspect the app
+before retrying. [Example](USAGE.md#open-an-email-composer).
+
+The table below describes the separate scripted `mail_prepare_send`/`mail_send`
+path and its stronger sender/attachment handling, with its existing layout limit.
+
 | Feature | Current contract | Verification and limits |
 | --- | --- | --- |
 | Special characters | `body` and `subject` accept Unicode strings. Body limit: 1,000,000 characters; subject limit: 998 characters. CR/LF/NUL are rejected in subjects. | Synthetic bridge tests preserve accented text, emoji, quotes and script-like punctuation. Received UTF-8 MIME from an earlier test preserved an accent, pound sign and cat emoji. An approved 27 October 2026 send preserved its Unicode subject and sampled umlauts, accented letters, currency, punctuation, emoji and Chinese text in decoded Sent and recipient Inbox MIME. This does not certify every character, recipient client or internationalized email address. |

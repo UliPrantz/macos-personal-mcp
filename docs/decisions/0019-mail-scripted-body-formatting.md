@@ -81,3 +81,8 @@ or automatic send, so its implementation does not resolve those missing guards.
 This source review adds no runtime change, independent live test or delivery
 claim. A clean automatic-send replacement still needs exact-payload approval
 and end-to-end sender, body, threading and attachment verification as applicable.
+
+On 9 November 2026, [decision 0021](0021-mailto-composer.md) adds a separate
+`mail_compose` open-composer tool. SDK plus desktop visual verification observed
+the greeting on the first body line, without an extra blank paragraph. It never
+automatically saves or sends; this does not change the scripted-send limitation.

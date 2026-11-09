@@ -1,13 +1,18 @@
-"""Public AppKit selectors used only by the explicit human approval child."""
+"""Public AppKit selectors used by bounded approval and compose workers."""
 
 from typing import Self
 
-from Foundation import NSObject
+from Foundation import NSURL, NSObject
 
 NSApplicationActivationPolicyAccessory: int
 NSAlertSecondButtonReturn: int
 type Size = tuple[float, float]
 type Rect = tuple[Size, Size]
+
+class NSWorkspace(NSObject):
+    @classmethod
+    def sharedWorkspace(cls) -> Self: ...
+    def openURL_(self, url: NSURL) -> bool: ...
 
 class NSApplication(NSObject):
     @classmethod

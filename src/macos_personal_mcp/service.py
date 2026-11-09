@@ -19,6 +19,7 @@ from macos_personal_mcp.access import (
 from macos_personal_mcp.body_index import BodyIndex
 from macos_personal_mcp.calendar_open import CalendarOpener
 from macos_personal_mcp.calendar_writes import CalendarExecutor, EventOutcome
+from macos_personal_mcp.mail_compose import MailCompose, MailComposer, MailComposeResult
 from macos_personal_mcp.mail_native.client import NativeSearchClient
 from macos_personal_mcp.mail_native.contracts import NativeSearch, NativeSearchResult
 from macos_personal_mcp.models import (
@@ -204,6 +205,14 @@ SETUP = (
 )
 WRITES = (
     Definition(
+        "mail_compose",
+        "Open a prefilled composer in the default email app using mailto, avoiding Mail's scripted body setter. To/CC/BCC are arrays of literal addresses; Unicode plain-text subject/body are optional. Opens local UI only: no automatic save or send, no sender selection, attachments or native reply threading. Choose those in the composer and review before sending. The email app may autosave. Existing body CR/LF breaks become CRLF; no leading newline is added by this tool. Limits: 100 recipients per field, 998 subject characters, 50,000 body characters, 64,000 characters for the full encoded URL. Requires --enable-mail-compose; unavailable in read-only mode. macOS acknowledgment is not proof of rendered content or a saved draft. Do not blindly retry an uncertain open; it may create another composer.",
+        MailCompose,
+        MailComposeResult,
+        mutates=True,
+        native=False,
+    ),
+    Definition(
         "mail_send",
         "External email with explicit To/CC/BCC/attachments; optional reply_to_message uses Mail's native reply to an exact original and may update its read/replied flags. Subject alone does not establish RFC threading. Unicode plain-text body only; HTML/Markdown/RTF styling, custom link labels and inline images are unsupported. Supply full URLs; client linking is not guaranteed. Mail may add a leading blank paragraph and quote wrapper after draft verification. Attachments: up to 20 absolute regular files, 20,000,000 bytes each, 50,000,000 total; reviewed bytes are frozen before dispatch. Provider limits may be lower. Mail controls attachment placement and may normalize Unicode filenames. Requires locally enabled executor; startup approval policy chooses native confirmation or host/model delegation. Accepted means Mail accepted the command, not confirmed delivery, formatting or received attachment bytes. Verify Sent/receipt and decode recipient MIME when proof is needed. Never retry uncertain outcomes.",
         MailSend,
@@ -241,6 +250,7 @@ class Service:
         body_index: BodyIndex | None = None,
         calendar_executor: CalendarExecutor | None = None,
         calendar_opener: CalendarOpener | None = None,
+        mail_composer: MailComposer | None = None,
         approval_config: LoadedConfig | None = None,
         contacts_backend: ContactsBackend = "framework",
     ) -> None:
@@ -253,6 +263,7 @@ class Service:
         self.body_index = body_index if body_index is not None else BodyIndex()
         self.calendar_executor = calendar_executor
         self.calendar_opener = calendar_opener
+        self.mail_composer = mail_composer
         self.approval_config = approval_config
         self.approval_policy = (
             approval_config.config.approval if approval_config is not None else ApprovalPolicy()
@@ -301,6 +312,7 @@ class Service:
                                     d.name == "calendar_open_event"
                                     and self.calendar_opener is not None
                                 )
+                                or (d.name == "mail_compose" and self.mail_composer is not None)
                             )
                         )
                     ),
@@ -363,7 +375,8 @@ class Service:
                 annotations=ToolAnnotations(
                     read_only_hint=not d.mutates,
                     destructive_hint=d.mutates
-                    and d.name not in {"calendar_open_event", "request_permissions"},
+                    and d.name
+                    not in {"mail_compose", "calendar_open_event", "request_permissions"},
                     idempotent_hint=not d.mutates or d.name == "calendar_open_event",
                     open_world_hint=True,
                 ),
@@ -507,6 +520,15 @@ class Service:
                     else "Mail execution disabled in this launch mode; exact human review is required when enabled",
                 ),
                 Capability(
+                    capability="email_compose_open",
+                    state="unverified"
+                    if self.mail_composer is not None and not self.read_only
+                    else "blocked",
+                    detail="Open a mailto composer in the default email app; no Mail data/Automation grant required by this route. No automatic save/send, sender selector, attachments or reply threading. Email app may autosave; review and finish there. An acknowledged URL does not prove rendering or a saved draft."
+                    if self.mail_composer is not None and not self.read_only
+                    else "Composer opening disabled. Enable --enable-mail-compose without --read-only, then restart the connection. Sending enablement is separate.",
+                ),
+                Capability(
                     capability="email_composition",
                     state="unverified",
                     detail="Unicode plain-text input; no HTML/Markdown/RTF renderer, custom link labels or inline images. Full URL text is supported; recipient-client linking is not guaranteed. Mail can add a leading blank paragraph and quote wrapper after draft checks. Attachments: <=20 absolute regular files, <=20,000,000 bytes each and <=50,000,000 total; provider limits may be lower. Accepted sends do not verify delivery, final formatting or received attachment bytes. See docs/MAIL_CAPABILITIES.md for scoped evidence, not a guarantee for this host.",
@@ -633,6 +655,15 @@ class Service:
                     host=await host_context(),
                 )
             if definition.mutates:
+                if name == "mail_compose":
+                    if self.mail_composer is None:
+                        raise NativeError(
+                            "compose_disabled",
+                            "Composer opening disabled; enable --enable-mail-compose and restart",
+                        )
+                    if not isinstance(request, MailCompose):
+                        raise NativeError("invalid_input", "Expected MailCompose")
+                    return await self.mail_composer.open(request)
                 if name == "calendar_create_event" and self.calendar_executor is not None:
                     if not isinstance(request, EventCreate):
                         raise NativeError("invalid_input", "Expected event creation payload")

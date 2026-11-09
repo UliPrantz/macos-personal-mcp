@@ -124,7 +124,8 @@ actual declarations and read behavior rather than assuming the old block persist
 Verify from the **desktop tool catalog**, rather than only Terminal:
 
 1. New read-only install: 17 tools (16 reads plus `request_permissions`), combined
-   `mail_search` present; legacy/native aliases absent. A guarded profile has 20 tools.
+   `mail_search` present; legacy/native aliases absent. A guarded profile has 21 tools.
+   `mail_compose` requires explicit `--enable-mail-compose` to open UI; it never sends.
 2. Call `doctor`, Mail account discovery and calendar discovery. On a compatible
    host, verify one-contact pagination; otherwise report the specific Contacts
    blocker and continue. Keep private contents out of the installation report.

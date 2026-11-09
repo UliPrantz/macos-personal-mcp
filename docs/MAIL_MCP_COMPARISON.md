@@ -252,3 +252,11 @@ mailto experiment did not expose a new public outgoing-message object, and the
 installed Mail scripting dictionary declares no result object for `mailto` or
 `GetURL`. Clean automatic sending through this route remains unverified. No
 new composer tool or change to the send path is shipped by this comparison.
+
+Follow-up, 9 November 2026: the owner requested an equivalent composer tool.
+`mail_compose` is now implemented separately from `mail_send`, with explicit
+`--enable-mail-compose` startup enablement. An SDK call and desktop visual check
+observed a clean first body line in Apple Mail, without sending. See
+[the composer decision](decisions/0021-mailto-composer.md) for its narrower
+open-only contract and bounds. The source comparison above describes the
+earlier investigation, not the current absence of a composer tool.

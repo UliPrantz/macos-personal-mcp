@@ -15,7 +15,8 @@ archive searches can exceed two seconds and do not certify exhaustive coverage.
 See [measured status](STATUS.md) for exact checks, OS limits and gaps.
 
 New installations expose **16 read tools plus permission setup (17 total)**.
-Optional send/create/open flags expose **20 tools**; the legacy FTS cache is
+Optional send/create/open flags expose **21 tools**; `mail_compose` execution
+requires its own `--enable-mail-compose` flag. The legacy FTS cache is
 hidden unless explicitly enabled. Invitations
 are outside this native-only version. The client owns the STDIO process lifetime;
 there is no listener, scheduler or autonomous background indexing service.
@@ -40,6 +41,10 @@ resolution or network download is needed when the MCP normally starts.
   build lacks the required Contacts entitlement and purpose string.
 - Mail preparation: exact configured sender, literal To/CC/BCC, content and local
   regular-file attachment hashes. A preview is never permission to send.
+- Mail composer: optional `mail_compose` opens a percent-encoded `mailto:` URL
+  with public `NSWorkspace.openURL_` in a bounded disposable Python worker. It
+  does not use Mail's scripted body setter or require Mail data/Automation access.
+  It has no sender, attachment, reply-threading, save or send capability.
 
 [Mail capabilities for agents](MAIL_CAPABILITIES.md) separates Unicode plain-text
 input, URL/formatting limits, attachment handling, delivery evidence and read-state
@@ -194,8 +199,8 @@ It is annotated as a non-read-only, non-destructive setup operation. See
 [permission setup](PERMISSIONS.md) for first requests, denial, limited scope and
 uncertain process attribution. Ordinary reads and doctor never request grants.
 
-Read-only mode is the default and omits **and rejects** sends, event creation and
-event-opening tools. The explicitly invoked permission-setup exception above
+Read-only mode is the default and omits **and rejects** sends, event creation,
+email composition and event-opening tools. The explicitly invoked permission-setup exception above
 cannot mutate source records or activate those executors.
 Enable the optional native executors explicitly when you want writes. The guarded
 profile has been verified through actual desktop discovery and native review.
@@ -288,7 +293,7 @@ must not be retried. The native result is compared to the reviewed payload;
 provider synchronization is outside that acknowledgment. Both explicit executor
 flags may be combined, with a host timeout of at least 240 seconds. Neither flag
 can be combined with `--read-only`. The optional guarded profile combines all
-three explicit executor flags; the server default remains read-only.
+send/create/Calendar-open flags; the server default remains read-only.
 See [Calendar approval and limits](decisions/0006-reviewed-calendar-creation.md).
 
 `serve --enable-calendar-open` independently enables Calendar's visible native
@@ -299,6 +304,16 @@ visual display requires human observation. Recurring occurrence opening fails
 before any UI command because exact occurrence selection is not proved. This
 flag conflicts with `--read-only`; it does not enable sends or event creation.
 See [native opening and identity mapping](decisions/0007-exact-native-event-opening.md).
+
+`serve --enable-mail-compose` independently enables `mail_compose`. It opens a
+composer with optional literal-address arrays `to`/`cc`/`bcc`, subject and body.
+It never automatically saves or sends. The default email app chooses the sender
+and may autosave; the user finishes there. There is no server approval dialog for
+this non-destructive UI action; host tool review remains applicable. Repeated
+calls can open additional windows, so its annotation is not idempotent. The flag
+conflicts with `--read-only`; it enables no other executor. `doctor` reports
+`email_compose_open` separately from sending and scripted-body limitations.
+See [composer contract](decisions/0021-mailto-composer.md).
 
 Attendee/invitation creation and direct provider API integrations are deliberately
 outside scope. No invitation tool, provider login, private attendee setter or ICS

@@ -55,6 +55,17 @@ contracts define the supported surfaces and their limits.
 
 ### Mail
 
+- `mail_compose`: optional explicitly enabled UI action, omitted and rejected in
+  read-only mode. Open a percent-encoded `mailto:` URL in the default email app
+  through public NSWorkspace, with optional literal To/CC/BCC arrays, plain-text
+  subject and body. Do not use Mail's scripted body setter or require Mail data
+  permission. No sender selection, attachments, reply identity, automatic save
+  or send; the user finishes in the email app, which may autosave. Acknowledgment
+  means macOS accepted the URL, not verified rendering or persistence. Preserve
+  intentional leading whitespace; normalize only existing CR/LF to CRLF. Bound
+  input/encoded URL and native execution; reject header/control injection and
+  unsupported fields. Non-read-only, non-destructive and non-idempotent, with no
+  server confirmation dialog. An uncertain open must not be blindly retried.
 - `mail_list_accounts`, `mail_list_mailboxes`: enumerate real configured accounts
   and folder hierarchy, stable selectors where possible, unread counts and scope.
   Include nested folders and local folders explicitly; report inaccessible ones.

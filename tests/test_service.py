@@ -100,7 +100,7 @@ async def test_search_registry_has_one_primary_and_opt_in_legacy(
     bridge = FixtureBridge()
     service = Service(read_only=read_only, bridge=bridge, enable_legacy_mail_search=legacy)
     tools = {tool.name: tool for tool in service.tools()}
-    assert len(tools) == (17 if read_only else 20) + int(legacy)
+    assert len(tools) == (17 if read_only else 21) + int(legacy)
     assert "mail_search_native" not in tools
     assert ("mail_search_legacy" in tools) is legacy
     assert tools["mail_search"].input_schema == NativeSearch.model_json_schema()

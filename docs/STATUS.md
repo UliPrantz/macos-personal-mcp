@@ -1,6 +1,6 @@
 # Current state
 
-Updated: 8 November 2026. Package version **0.3.4**.
+Updated: 9 November 2026. Package version **0.3.5**.
 
 ## Capabilities
 
@@ -10,8 +10,9 @@ Updated: 8 November 2026. Package version **0.3.4**.
 | Calendar | EventKit calendar discovery, bounded event reads/search, recurring occurrence identities, optional selected-calendar creation and exact nonrecurring event opening |
 | Contacts | Read-only lookup and pagination on compatible hosts; the tested direct ChatGPT build is blocked as described below |
 | Writes | Optional Mail sending with attachments and exact native replies, plus Calendar creation; native human review by default, with explicit owner-controlled host delegation |
+| Email composer | Optional `mail_compose` opens a mailto composer in the default email app; the user finishes there, with no automatic save or send |
 | Permissions | Nonprompting doctor, explicit per-domain setup, host context and actionable errors |
-| Installation | Isolated installer, manual instructions and an agent installation prompt; 17 default tools, 20 with all optional executors enabled |
+| Installation | Isolated installer, manual instructions and an agent installation prompt; 17 default tools, 21 with optional executor schemas; composer execution needs `--enable-mail-compose` |
 
 One canonical `mail_search` reuses native Mail storage and Apple's index without
 building a second body database. Legacy FTS is hidden unless explicitly enabled
@@ -23,12 +24,22 @@ tool descriptions/input schemas, doctor and the [Mail capability matrix](MAIL_CA
 
 ## Verification
 
-**259 synthetic/protocol tests passed; three opt-in live tests were skipped.**
+**282 synthetic/protocol tests passed; three opt-in live tests were skipped.**
 Ruff format/check, strict Pyright, wheel build/inspection, installer shell syntax
 and all three JXA compilations passed. [CI](https://github.com/UliPrantz/macos-personal-mcp/actions/workflows/ci.yml)
 repeats these checks. SDK STDIO discovery covers both Contacts backends and
 protocol modes without reading native data. Normal tests never read personal
 apps or send messages/events.
+
+On 9 November 2026, an SDK STDIO call to the new `mail_compose` returned
+`open_acknowledged=true`, `saved_by_mcp=false` and `sent_by_mcp=false`. The test
+supplied no recipients. Desktop accessibility/screenshot inspection confirmed the
+test composer in Apple Mail began with its first greeting, without an extra
+leading blank paragraph; the sampled Unicode and URL text were visible. Nothing
+was sent, no automatic save was requested and no persistence/delivery claim was
+made. This is SDK plus visual native verification, not a call through a refreshed
+ChatGPT tool catalog. The existing local registration has the composer flag;
+that connection still needs reload. [Composer decision](decisions/0021-mailto-composer.md).
 
 The following are earlier live measurements on the development Mac, not tests
 repeated during documentation cleanup or guarantees for another installation:

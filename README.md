@@ -162,6 +162,26 @@ it. [Verified Mail capabilities and limits for agents](docs/MAIL_CAPABILITIES.md
 
 </details>
 
+<details>
+<summary><strong>📝 Open an email draft for me to finish</strong></summary>
+
+Add `--enable-mail-compose` to your server arguments and remove `--read-only`.
+For draft opening alone, use:
+
+```text
+serve --enable-mail-compose
+```
+
+Restart the connection, then ask: “Open an email draft to Alex about tomorrow's
+meeting, with the text we just wrote.” The `mail_compose` tool opens a prefilled
+composer in your default email app using `mailto:`, avoiding the scripted Mail
+body setter associated with the blank-line issue above. Choose the sender, add
+attachments and send it yourself. The tool does not save or send; your email app
+may autosave. This works without enabling automatic sends or granting Mail-file
+access. [Example and limits](docs/USAGE.md#open-an-email-composer).
+
+</details>
+
 ## 🎯 What to expect today
 
 Search, message reads and Calendar have been tested through actual desktop tools.
